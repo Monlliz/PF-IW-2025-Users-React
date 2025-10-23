@@ -1,0 +1,22 @@
+/* Contenedor principal que usa Flexbox */
+.shellContainer {
+  display: flex;
+  /* Altura total de la ventana menos la altura del ShellBar (aprox. 3rem) */
+  height: calc(100vh - 3rem); 
+  
+  
+}
+
+/* Estilos para el área de contenido principal */
+.contentContainer {
+  flex-grow: 1; /* Hace que este elemento ocupe todo el espacio sobrante */
+  /* padding: 2rem; */
+  height: 100%;
+  min-width: 0;
+  overflow-x: hidden; /* Evita que el contenido se desborde horizontalmente */
+  overflow-y: auto; /* Agrega scroll solo a esta área si el contenido es muy largo */
+}
+
+.sidNav{
+    width: 5%;
+}

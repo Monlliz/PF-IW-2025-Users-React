@@ -1,0 +1,67 @@
+/*Generalees*/
+.BtnFooter {
+    height: 4vh;
+    margin-right: 1rem;
+    margin-top: 0.500rem;
+    margin-bottom: 0.500rem;
+}
+
+
+
+/*REUSABLE MODAL--------------------------------------------------------------------------*/
+.DialogModal {
+
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.SelectModal {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+/*Estilo del texto de error*/
+.ErrorTextModal {
+    /* Usa el color rojo oficial del tema  */
+    color: var(--sapNegativeElementColor, red);
+    font-Size: 0.75rem;
+    margin-Top: 0.25rem;
+    margin-Bottom: 0.5rem;
+    display: block;
+}
+
+    /*Acomodo del mensaje de campos faltantes*/
+.SpaceTextModal{
+    white-Space: pre-wrap;
+    line-Height: 1.5 ;
+}
+
+/*Espaciado de los campos*/
+.fieldsModal{
+    padding: '1rem 0';
+}
+
+/*=======Margen paraa cuando hay error y para cuando no=========*/
+
+.fieldWrapperModal {
+  margin-bottom: 1rem; /* El margen por defecto (cuando NO hay error) */
+}
+
+.fieldWrapperErrorModal {
+  margin-bottom: 0.5rem; /* El margen cuando SÍ hay error */
+}
+/*----------------------------------------------------------------------------------------*/
+/*ALERT MODAL******************************************************************************/
+.DialogAlert {
+    /* max-Width: 25%; */
+    font-family: "72";
+}
+
+.MsgAlert {
+    padding: 1rem 0;
+    min-Height: 80px;
+    display: flex;
+    align-items: 'center';
+}
+
+/*****************************************************************************************/

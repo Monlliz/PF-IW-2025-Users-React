@@ -1,0 +1,9 @@
+Propiedad design de botones:
+    Designs disponibles:
+    Default - Estilo por defecto
+    Positive - Verde, para acciones positivas
+    Negative - Rojo, para acciones destructivas
+    Transparent - Transparente, para toolbars
+    Emphasized - Azul, para acción principal
+    Attention - Naranja, para advertencias
+    Ghost - Borde solamente, para acciones secundarias
