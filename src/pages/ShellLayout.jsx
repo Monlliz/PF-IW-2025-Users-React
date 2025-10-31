@@ -68,7 +68,7 @@ export default function ShellLayout() {
           <SideNavigationItem text="Gestión de Usuarios" icon="group" expanded>
             <SideNavigationSubItem text="Usuarios" data-key="/users" icon='employee'/>
             <SideNavigationSubItem text="Roles" data-key="/roles" icon='role'/>
-            
+            <SideNavigationSubItem text="Privilegios" data-key="/privileges" icon='private'/>
           </SideNavigationItem>
 
           {/* Items simples con flecha */}
