@@ -10,6 +10,7 @@ import Privileges from './pages/Privileges.jsx';
 import Login from './pages/Login.jsx';
 import Process from './pages/Process.jsx';
 import Apps from './pages/Apps.jsx';
+import { Configuracion } from './pages/Configuracion.jsx';
 
 //css
 //import './index.css';
@@ -21,12 +22,13 @@ import '@ui5/webcomponents-icons/dist/AllIcons.js'; // Importa todos los íconos
 import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
 
-
+import { DbProvider } from './contexts/dbContext.jsx';
 
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
+      <DbProvider>
       <BrowserRouter>
         <Routes>
           {/* Ruta de login - sin ShellLayout */}
@@ -39,14 +41,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="roles" element={<Roles />} />
             <Route path="users" element={<Users />} />
             <Route path="privileges" element={<Privileges />} />
-            <Route path="process" element={<Process />} />
-            <Route path="apps" element={<Apps />} />
+            <Route path="configuracion" element={<Configuracion/>} />
           </Route>
           
           {/* Ruta por defecto o redirección */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      </DbProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

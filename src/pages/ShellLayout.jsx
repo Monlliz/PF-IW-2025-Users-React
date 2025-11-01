@@ -71,9 +71,7 @@ export default function ShellLayout() {
             <SideNavigationSubItem text="Privilegios" data-key="/privileges" icon='private'/>
           </SideNavigationItem>
 
-          {/* Items simples con flecha */}
-          <SideNavigationItem text="Aplicaciones" icon="desktop-mobile" data-key="/apps" />
-          <SideNavigationItem text="Procesos" data-key="/process" icon='process'/>
+          <SideNavigationItem text="Configuración" icon="home" data-key="/configuracion" />
         </SideNavigation>
         {/* 3. Aplica la clase al contenedor del contenido */}
         <main className={styles.contentContainer}>

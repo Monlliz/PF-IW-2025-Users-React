@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import AlertModal from "../components/modals/AlertModal";
 import ReusableModal from "../components/modals/ReusableModal";
 import styles from "../styles/Roles.module.css";
@@ -17,9 +17,7 @@ import {
   Icon
 } from "@ui5/webcomponents-react";
 
-/* =======================================================
-   DATOS SIMULADOS
-=========================================================*/
+import { DbContext } from "../contexts/dbContext";
 
 const viewsData = [
   { VIEWID: "V001", Descripcion: "Vista principal" },
@@ -156,12 +154,14 @@ export default function PrivilegesLayout() {
   const [selectedProcess, setSelectedProcess] = useState(null);
   const [filteredPrivileges, setFilteredPrivileges] = useState([]);
 
+  
   // Maps loaded from single API route (fallback to the simulated constants)
   const [processesMap, setProcessesMap] = useState(processesByView);
   const [privilegesMap, setPrivilegesMap] = useState(privilegesByProcess);
 
   // API route, loading and error
-  const apiRoute = 'http://localhost:3333/api/application/crud?ProcessType=getAplications&LoggedUser=EMorenoD&dbserver=MongoDB';
+  const {dbServer} = useContext(DbContext);
+  const apiRoute = `http://localhost:3333/api/application/crud?ProcessType=getAplications&LoggedUser=EMorenoD&dbserver=${dbServer}`;
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
@@ -225,6 +225,7 @@ export default function PrivilegesLayout() {
 
   // Cargar todos los datos desde una sola ruta de API
   const fetchAllData = async () => {
+    console.log(dbServer);
     setLoadingData(true);
     setLoadError(null);
     try {
@@ -237,30 +238,22 @@ export default function PrivilegesLayout() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Support multiple possible shapes. Some backends wrap payload in data[0].dataRes
-      const payload = (data && data.data && data.data[0] && data.data[0].dataRes && data.data[0].dataRes[0])
+      const payload = data.data[0].dataRes[0]
         || data
         || {};
 
-      // Raw sources
-      const rawViews = payload.VIEWS || payload.views || data.views || viewsData;
-      const rawProcessesByView = payload.processesByView || payload.PROCESSES_BY_VIEW || null;
-      const rawProcessesList = payload.PROCESSES || payload.processes || data.processes || null;
-      const rawPrivilegesByProcess = payload.privilegesByProcess || payload.PRIVILEGES_BY_PROCESS || data.privilegesByProcess || null;
+      const rawViews = payload.VIEWS;
+      const rawProcessesList = payload.PROCESS;
 
-      // Normalize views: ensure each view has VIEWID
       const loadedViews = (Array.isArray(rawViews) ? rawViews : []).map((v) => {
-        const id = v.VIEWID || v.VIEWSID || v.id || v.viewId;
+        const id = v.VIEWSID;
         return {
-          VIEWID: id,
+          VIEWSID: id,
           Descripcion: v.description || "Sin descripcion"
         };
       });
 
       let builtProcessesMap = {};
-      if (rawProcessesByView && typeof rawProcessesByView === 'object') {
-        builtProcessesMap = rawProcessesByView;
-      } else {
         (Array.isArray(rawViews) ? rawViews : []).forEach((v) => {
           const viewId = v.VIEWSID;
           const procArray = v.PROCESS || [];
@@ -281,26 +274,10 @@ export default function PrivilegesLayout() {
             builtProcessesMap[viewId] = processesByView[viewId] || [];
           }
         });
-      }
-
-      // Build privilegesMap
-      let builtPrivilegesMap = {};
-      if (rawPrivilegesByProcess && typeof rawPrivilegesByProcess === 'object') {
-        builtPrivilegesMap = rawPrivilegesByProcess;
-      } else if (Array.isArray(data.privileges)) {
-        data.privileges.forEach((pr) => {
-          const pid = pr.PROCESSID || pr.processId || pr.procId;
-          if (!builtPrivilegesMap[pid]) builtPrivilegesMap[pid] = [];
-          builtPrivilegesMap[pid].push({ PRIVILEGIEID: pr.PRIVILEGIEID || pr.id, Descripcion: pr.Descripcion || pr.description || "" });
-        });
-      } else {
-        builtPrivilegesMap = privilegesByProcess;
-      }
 
       setViews(loadedViews);
       setFilteredViews(loadedViews);
       setProcessesMap(builtProcessesMap);
-      setPrivilegesMap(builtPrivilegesMap);
     } catch (err) {
       // fallback: ya están inicializados con datos simulados
       setLoadError(err.message || String(err));
@@ -316,20 +293,18 @@ export default function PrivilegesLayout() {
   // Seleccionar view → cargar procesos
   const handleViewSelect = (e) => {
     const row = e.detail.row.original;
-    const viewKey = row?.VIEWID || row?.VIEWSID || row?.id || row?.viewId;
-    // normalize selectedView to always include VIEWID
-    setSelectedView({ ...row, VIEWID: viewKey });
-    setFilteredProcesses(processesMap[viewKey] || processesMap[row?.VIEWID] || processesMap[row?.VIEWSID] || []);
+    const viewKey = row?.VIEWSID;
+    setSelectedView({ ...row, VIEWSID: viewKey });
+    setFilteredProcesses(processesMap[row?.VIEWSID]);
     setSelectedProcess(null);
-    setFilteredPrivileges([]);
   };
 
   // Seleccionar process → cargar privilegios
   const handleProcessSelect = (e) => {
     const row = e.detail.row.original;
-    const procKey = row?.PROCESSID || row?.PROC_ID || row?.id || row?.processId;
+    const procKey = row?.PROCESSID;
     setSelectedProcess({ ...row, PROCESSID: procKey });
-    setFilteredPrivileges(privilegesMap[procKey] || privilegesMap[row?.PROCESSID] || []);
+    setFilteredPrivileges(privilegesMap[row?.PROCESSID] || []);
   };
 
   // Seleccionar privilegio (fila)
@@ -397,7 +372,7 @@ export default function PrivilegesLayout() {
           <AnalyticalTable
             data={filteredViews}
             columns={[
-              { Header: "VIEWID", accessor: "VIEWID" },
+              { Header: "VIEWID", accessor: "VIEWSID" },
               { Header: "Descripción", accessor: "Descripcion" }
             ]}
             onRowClick={handleViewSelect}
