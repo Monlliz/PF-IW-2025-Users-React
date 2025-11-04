@@ -1,9 +1,8 @@
 // Roles.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import AlertModal from '../components/modals/AlertModal';
 import ReusableModal from '../components/modals/ReusableModal';
 import styles from '../styles/Roles.module.css';
-import Split from 'react-split';
 
 import {
   Page,
@@ -20,10 +19,9 @@ import {
   Icon
 } from '@ui5/webcomponents-react';
 
-/* ---------------------------
-  Datos y columnas
-----------------------------*/
-const initialRoles = [
+import { DbContext } from "../contexts/dbContext";
+
+const rolesData = [
   { ROLEID: "0001", ROL: "Docente" },
   { ROLEID: "0002", ROL: "Administrador" },
   { ROLEID: "0003", ROL: "Alumno" },
@@ -36,10 +34,10 @@ const roleColumns = [
 
 const appColumns = [
   { Header: "APPID", accessor: "APPID" },
-  { Header: "Aplicación", accessor: "Aplicacion" },
+  { Header: "NAMEAPP", accessor: "NAMEAPP" },
 ];
 
-const appsByRole = {
+const applicationsByRol  = {
   "0001": [
     { APPID: "101", Aplicacion: "App Docente A" },
     { APPID: "102", Aplicacion: "App Docente B" }
@@ -52,9 +50,7 @@ const appsByRole = {
     { APPID: "301", Aplicacion: "App Alumno A" }
   ]
 };
-/* ---------------------------
-  Splitter mejorado (oculta panel izquierdo o derecho)
-----------------------------*/
+
 function SplitterLayout({
   children,
   initialLeft = '30%',
@@ -67,6 +63,7 @@ function SplitterLayout({
   const [leftWidth, setLeftWidth] = useState(initialLeft);
   const dragging = useRef(false);
   const splitterWidth = 8;
+
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
 
@@ -89,7 +86,6 @@ function SplitterLayout({
 
     setIsLeftCollapsed(newWidth <= hideThreshold);
 
-    // Calcular ancho real del panel derecho
     const splitterPercent = (splitterWidth / rect.width) * 100;
     const rightWidthPercent = 100 - newWidth - splitterPercent;
     setIsRightCollapsed(rightWidthPercent <= hideThreshold);
@@ -114,144 +110,249 @@ function SplitterLayout({
 
   return (
     <div
-  ref={containerRef}
-  style={{
-    display: 'flex',
-    width: '100%',
-    height,
-    overflow: 'hidden',
-    position: 'relative', // <--- necesario para el indicador
-  }}
->
-  {/* Panel izquierdo */}
-  <div
-    style={{
-      width: leftWidth,
-      overflow: isLeftCollapsed ? 'hidden' : 'auto',
-      opacity: isLeftCollapsed ? 0 : 1,
-      pointerEvents: isLeftCollapsed ? 'none' : 'auto',
-      transition: 'opacity 0.2s ease',
-      position: 'relative',
-    }}
-  >
-    {left}
-  </div>
-
-  {/* Indicador “Roles” */}
-  {isLeftCollapsed && (
-  <div
-    style={{
-      position: 'absolute',
-      top: '50%',
-      left: `${splitterWidth / 5}px`,
-      transform: 'translateY(-50%) rotate(-90deg)',
-      fontWeight: 'bold',
-      color: '#555',
-      cursor: 'pointer',
-      zIndex: 10,
-      whiteSpace: 'nowrap',
-      fontFamily: `'72', '72 Bold', Roboto, Arial, sans-serif`, // <-- aquí la fuente
-      fontSize: '1.2em', // opcional, ajustar tamaño
-    }}
-  >
-    Tabla Roles
-  </div>
-)}
-
-
-  {/* Splitter */}
-{/* Splitter con icono */}
-<div
-  className={styles.splitter}
-  onMouseDown={handleMouseDown}
-  style={{
-    position: 'relative', // para poder posicionar el icono dentro
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }}
->
-  {/* Icono tipo UI5 */}
-  <Icon
-    name="resize-horizontal" 
-    style={{
-      fontSize: '1.5rem',
-      color: '#ffffffff',
-      cursor: 'col-resize', // mismo comportamiento que el splitter
-      userSelect: 'none',
-    }}
-  />
-</div>
-
-  {/* Panel derecho */}
-  <div
-    style={{
-      width: isRightCollapsed
-        ? `${splitterWidth}px`
-        : `calc(${100 - parseFloat(leftWidth)}% - ${splitterWidth}px)`,
-      overflow: isRightCollapsed ? 'hidden' : 'auto',
-      opacity: isRightCollapsed ? 0 : 1,
-      pointerEvents: isRightCollapsed ? 'none' : 'auto',
-      transition: 'opacity 0.2s ease, width 0.2s ease',
-    }}
-  >
-    {right}
-  </div>
-</div>
-
+      ref={containerRef}
+      style={{
+        display: 'flex',
+        width: '100%',
+        height,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
+      <div
+        style={{
+          width: leftWidth,
+          overflow: isLeftCollapsed ? 'hidden' : 'auto',
+          opacity: isLeftCollapsed ? 0 : 1,
+          pointerEvents: isLeftCollapsed ? 'none' : 'auto',
+          transition: 'opacity 0.2s ease',
+          position: 'relative',
+        }}
+      >
+        {left}
+      </div>
+      {isLeftCollapsed && (
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: `${splitterWidth / 5}px`,
+          transform: 'translateY(-50%) rotate(-90deg)',
+          fontWeight: 'bold',
+          color: '#555',
+          cursor: 'pointer',
+          zIndex: 10,
+          whiteSpace: 'nowrap',
+          fontFamily: `'72', '72 Bold', Roboto, Arial, sans-serif`,
+          fontSize: '1.2em',
+        }}
+      >
+        Tabla Roles
+      </div>
+      )}
+      <div
+        className={styles.splitter}
+        onMouseDown={handleMouseDown}
+        style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon
+          name="resize-horizontal" 
+          style={{
+            fontSize: '1.5rem',
+            color: '#ffffffff',
+            cursor: 'col-resize',
+            userSelect: 'none',
+          }}
+        />
+      </div>
+      <div
+        style={{
+          width: isRightCollapsed
+            ? `${splitterWidth}px`
+            : `calc(${100 - parseFloat(leftWidth)}% - ${splitterWidth}px)`,
+          overflow: isRightCollapsed ? 'hidden' : 'auto',
+          opacity: isRightCollapsed ? 0 : 1,
+          pointerEvents: isRightCollapsed ? 'none' : 'auto',
+          transition: 'opacity 0.2s ease, width 0.2s ease',
+        }}
+      >
+        {right}
+      </div>
+    </div>
   );
 }
 
-
-/* ---------------------------
-  Componente principal
-----------------------------*/
 export default function Roles() {
-  const [allRoles] = useState(initialRoles);
-  const [filteredRoles, setFilteredRoles] = useState(initialRoles);
-  const [selectedRow, setSelectedRow] = useState(null);
+  const [roles, setRoles] = useState(rolesData);
+  const [filteredRoles, setFilteredRoles] = useState(rolesData);
+  const [selectedRol, setSelectedRol] = useState(null);
   const [filteredApps, setFilteredApps] = useState([]);
+  const [selectedAplicacion, setSelectedAplicacion] = useState(null);
 
-  const [isHoveredAdd, setHoveredAdd] = useState(false);
-  const [isHoveredInfo, setHoveredInfo] = useState(false);
-  const [isHoveredEdit, setHoveredEdit] = useState(false);
-  const [isHoveredDelete, setHoveredDelete] = useState(false);
+  const [appsByRol, setAppsByRol] = useState(applicationsByRol);
 
-  // Modales
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingRole, setEditingRole] = useState(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedRoleDetails, setSelectedRoleDetails] = useState(null);
+  const {dbServer} = useContext(DbContext);
+  const apiRoute = `http://localhost:3333/api/roles/crud?ProcessType=getAll&DBServer=${dbServer}&LoggedUser=AGUIZARE`;
+  const [loadingData, setLoadingData] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
-  // Búsqueda
-  const handleSearch = (event) => {
-    const query = event.target.value.toLowerCase();
-    if (query === '') {
-      setFilteredRoles(allRoles);
-      return;
-    }
-    const filtered = allRoles.filter(role =>
-      Object.values(role).some(value => String(value).toLowerCase().includes(query))
+  const [isHoveredAddRol, setHoveredAddRol] = useState(false);
+  const [isHoveredInfoRol, setHoveredInfoRol] = useState(false);
+  const [isHoveredEditRol, setHoveredEditRol] = useState(false);
+  const [isHoveredDeleteRol, setHoveredDeleteRol] = useState(false);
+  const [showEditRol, setShowEditRol] = useState(false);
+  const [showConfirmRol, setShowConfirmRol] = useState(false);
+  const [isRolDetailModalOpen, setIsRolDetailModalOpen] = useState(false);
+  const [selectedRolDetails, setSelectedRolDetails] = useState(null);
+  const [editingRol, setEditingRol] = useState(null);
+  const [itemToDeleteRol, setItemToDeleteRol] = useState(null);
+
+  const [isHoveredAddAplicacion, setHoveredAddAplicacion] = useState(false);
+  const [isHoveredInfoAplicacion, setHoveredInfoAplicacion] = useState(false);
+  const [isHoveredEditAplicacion, setHoveredEditAplicacion] = useState(false);
+  const [isHoveredDeleteAplicacion, setHoveredDeleteAplicacion] = useState(false);
+  const [showCreateAplicacionModal, setShowCreateAplicacionModal] = useState(false);
+  const [showEditAplicacion, setShowEditAplicacion] = useState(false);
+  const [showConfirmAplicacion, setShowConfirmAplicacion] = useState(false);
+  const [isAplicacionDetailModalOpen, setIsAplicacionDetailModalOpen] = useState(false);
+  const [selectedAplicacionDetails, setSelectedAplicacionDetails] = useState(null);
+  const [editingAplicacion, setEditingAplicacion] = useState(null);
+  const [itemToDeleteAplicacion, setItemToDeleteAplicacion] = useState(null);
+
+  const [modalType, setModalType] = useState(null); 
+  const [modalContext, setModalContext] = useState(null); 
+  const [modalData, setModalData] = useState(null);
+
+  const closeModal = () => {
+    setModalType(null);
+    setModalContext(null);
+    setModalData(null);
+  };
+
+  const handleSearch = (event, data, setFiltered) => {
+    const q = event.target.value.toLowerCase();
+    if (!q) return setFiltered(data);
+    const f = data.filter(d =>
+      Object.values(d).some(v => String(v).toLowerCase().includes(q))
     );
-    setFilteredRoles(filtered);
+    setFiltered(f);
   };
 
-  // Selección de fila
-  const handleRowClick = (event) => {
-    const rowData = event.detail?.row?.original;
-    if (rowData) {
-      setSelectedRow(rowData);
-      setFilteredApps(appsByRole[rowData.ROLEID] || []);
+  const fetchAllData = async () => {
+    console.log("Servidor:", dbServer);
+    setLoadingData(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(apiRoute, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      console.log("Respuesta de API (Roles.jsx):", data);
+
+      const payload = data?.data?.[0]?.dataRes || data?.data?.[0] || data?.data || {};
+      console.log("Payload extraído:", payload);
+
+      const rolesArray = Array.isArray(payload) ? payload : [payload];
+
+      const loadedRoles = rolesArray.map((r) => ({
+        ROLEID: r.ROLEID,
+        ROLENAME: r.ROLENAME || "Sin NOMBRE",
+        DESCRIPTION: r.DESCRIPTION || "",
+        ACTIVED: r.ACTIVED,
+      }));
+
+      const builtAppsMap = {};
+      rolesArray.forEach((r) => {
+        builtAppsMap[r.ROLEID] = (r.PROCESS || []).map((p) => ({
+          APPID: p.PROCESSID,
+          NAMEAPP: p.NAMEAPP || "Sin nombre",
+          DESCRIPTION: p.DESCRIPTION || "",
+        }));
+      });
+
+      setRoles(loadedRoles);
+      setFilteredRoles(loadedRoles);
+      setAppsByRol(builtAppsMap);
+
+    } catch (err) {
+      console.error("❌ Error al cargar datos:", err);
+      setLoadError(err.message || String(err));
+    } finally {
+      setLoadingData(false);
     }
   };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const handleRolSelect = (e) => {
+    const row = e.detail.row.original;
+    const rolKey = row?.ROLEID;
+    setSelectedRol({ ...row, ROLEID: rolKey });
+    setFilteredApps(appsByRol[row?.ROLEID] || []);
+  };
+
+  const handleAplicacionSelect = (e) => {
+    const row = e.detail?.row?.original;
+    if (row) setSelectedAplicacion(row);
+  };
+
+  const handleCreateAplicacion = (appData) => {
+  // Ejemplo simple para agregar una nueva aplicación a filteredApps y appsByRol
+  const newAppId = Date.now().toString();
+  const newApp = { ...appData, APPID: newAppId };
+
+  setFilteredApps(prev => [newApp, ...prev]);
+
+  // Actualiza appsByRol para el rol seleccionado
+  setAppsByRol(prev => ({
+    ...prev,
+    [selectedRol.ROLEID]: [newApp, ...(prev[selectedRol.ROLEID] || [])]
+  }));
+
+  setShowCreateAplicacionModal(false);
+};
+
+const handleEditAplicacion = (updatedAppData) => {
+  if (!editingAplicacion) return;
+
+  const appIdToUpdate = editingAplicacion.APPID;
+
+  setFilteredApps(prev =>
+    prev.map(app => (app.APPID === appIdToUpdate ? { ...app, ...updatedAppData } : app))
+  );
+
+  setAppsByRol(prev => {
+    const updatedRolApps = (prev[selectedRol.ROLEID] || []).map(app =>
+      app.APPID === appIdToUpdate ? { ...app, ...updatedAppData } : app
+    );
+    return { ...prev, [selectedRol.ROLEID]: updatedRolApps };
+  });
+
+  setShowEditAplicacionModal(false);
+  setEditingAplicacion(null);
+};
+
+const handleEditAplicacionClick = (appToEdit) => {
+  if (!appToEdit) return;
+  setEditingAplicacion(appToEdit);
+  setShowEditAplicacionModal(true);
+};
 
   return (
     <Page className={styles.pageContainer}>
       <Bar>
-        <Title>Roles</Title>
+        <Title>Gestor de Roles y sus Aplicaciones</Title>
       </Bar>
 
       <SplitterLayout
@@ -261,150 +362,244 @@ export default function Roles() {
         hideThreshold={5}
         height="calc(100vh - 70px)"
       >
-
-        {/* Panel izquierdo */}
         <div>
+          <Toolbar style={{ paddingBottom: 0, background: "none", boxShadow: "none" }}>
+            <Input
+              type="search"
+              placeholder="Buscar rol..."
+              className={styles.searchInput}
+              icon="search"
+              onInput={(e) => handleSearch(e, roles, setFilteredRoles)}
+              style={{ width: "80%" }}
+            />
+          </Toolbar>
+
+          <Toolbar className={styles.barTable}>
+            <FlexBox className={styles.buttonGroupContainer}>
+              <ToolbarButton
+                icon="add"
+                design={isHoveredAddRol ? "Positive" : "Transparent"}
+                onMouseEnter={() => setHoveredAddRol(true)}
+                onMouseLeave={() => setHoveredAddRol(false)}
+                onClick={() => { setModalType('create'); setModalContext('rol'); }}
+              />
+              <ToolbarButton
+                icon="hint"
+                design={isHoveredInfoRol ? "Emphasized" : "Transparent"}
+                onMouseEnter={() => setHoveredInfoRol(true)}
+                onMouseLeave={() => setHoveredInfoRol(false)}
+                disabled={!selectedRol}
+                onClick={() => { setSelectedRolDetails(selectedRol); setIsRolDetailModalOpen(true); }}
+              />
+              <ToolbarButton
+                icon="edit"
+                design={isHoveredEditRol ? "Attention" : "Transparent"}
+                onMouseEnter={() => setHoveredEditRol(true)}
+                onMouseLeave={() => setHoveredEditRol(false)}
+                disabled={!selectedRol}
+                onClick={() => { setEditingRol(selectedRol); setShowEditRol(true); console.log('Edit modal should open', selectedRol);}}
+              />
+              <ToolbarButton
+                icon="delete"
+                design={isHoveredDeleteRol ? "Negative" : "Transparent"}
+                onMouseEnter={() => setHoveredDeleteRol(true)}
+                onMouseLeave={() => setHoveredDeleteRol(false)}
+                disabled={!selectedRol}
+                onClick={() => { setItemToDeleteRol(selectedRol); setShowConfirmRol(true); }}
+              />
+            </FlexBox>
+          </Toolbar>
+
           <AnalyticalTable
             data={filteredRoles}
-            columns={roleColumns}
-            onRowClick={handleRowClick}
+            columns={[
+              { Header: "ROLEID", accessor: "ROLEID" },
+              { Header: "ROLENAME", accessor: "ROLENAME" }
+            ]}
+            onRowClick={handleRolSelect}
             visibleRows={10}
-            header={
-              <div>
-                <Toolbar style={{ paddingBottom: 0, background: "none", boxShadow: "none" }}>
-                  <Input
-                    type="search"
-                    placeholder="Buscar..."
-                    className={styles.searchInput}
-                    icon="search"
-                    onInput={handleSearch}
-                    style={{ width: "80%" }}
-                  />
-                </Toolbar>
-                <Toolbar className={styles.barTable}>
-                  <FlexBox className={styles.buttonGroupContainer}>
-                    <ToolbarButton
-                      icon="add"
-                      design={isHoveredAdd ? "Positive" : "Transparent"}
-                      onMouseEnter={() => setHoveredAdd(true)}
-                      onMouseLeave={() => setHoveredAdd(false)}
-                      onClick={() => setShowCreateModal(true)}
-                    />
-                    <ToolbarButton
-                      icon="hint"
-                      design={isHoveredInfo ? "Emphasized" : "Transparent"}
-                      onMouseEnter={() => setHoveredInfo(true)}
-                      onMouseLeave={() => setHoveredInfo(false)}
-                      disabled={!selectedRow}
-                      onClick={() => {
-                        setSelectedRoleDetails(selectedRow);
-                        setIsDetailModalOpen(true);
-                      }}
-                    />
-                    <ToolbarButton
-                      icon="edit"
-                      design={isHoveredEdit ? "Attention" : "Transparent"}
-                      onMouseEnter={() => setHoveredEdit(true)}
-                      onMouseLeave={() => setHoveredEdit(false)}
-                      disabled={!selectedRow}
-                      onClick={() => {
-                        setEditingRole(selectedRow);
-                        setShowEditModal(true);
-                      }}
-                    />
-                    <ToolbarButton
-                      icon="delete"
-                      design={isHoveredDelete ? "Negative" : "Transparent"}
-                      onMouseEnter={() => setHoveredDelete(true)}
-                      onMouseLeave={() => setHoveredDelete(false)}
-                      disabled={!selectedRow}
-                      onClick={() => {
-                        setItemToDelete(selectedRow);
-                        setShowConfirmModal(true);
-                      }}
-                    />
-                  </FlexBox>
-                </Toolbar>
-              </div>
-            }
           />
         </div>
 
-        {/* Panel derecho */}
         <div style={{ background: "#f5f5f5", padding: "1em" }}>
           <Title style={{ fontWeight: 700, fontSize: "1.8em" }}>Aplicaciones</Title>
-          <Toolbar style={{ background: "none", boxShadow: "none", justifyContent: "flex-end" }}>
-            <ToolbarSpacer />
-            <ToolbarButton icon="add" />
-            <ToolbarButton icon="edit" />
-            <ToolbarButton icon="delete" />
+
+          <Toolbar style={{ paddingTop: 0, background: "none", boxShadow: "none", justifyContent: "flex-end" }}>
+            <FlexBox>
+              <ToolbarButton
+                icon="add"
+                design={isHoveredAddAplicacion ? "Positive" : "Transparent"}
+                onMouseEnter={() => setHoveredAddAplicacion(true)}
+                onMouseLeave={() => setHoveredAddAplicacion(false)}
+                disabled={!selectedRol}
+                onClick={() => setShowCreateAplicacionModal(true)}
+              />
+              <ToolbarButton
+                icon="hint"
+                design={isHoveredInfoAplicacion ? "Emphasized" : "Transparent"}
+                onMouseEnter={() => setHoveredInfoAplicacion(true)}
+                onMouseLeave={() => setHoveredInfoAplicacion(false)}
+                disabled={!selectedAplicacion}
+                onClick={() => { setSelectedAplicacionDetails(selectedAplicacion); setIsAplicacionDetailModalOpen(true); }}
+              />
+              <ToolbarButton
+                icon="edit"
+                design={isHoveredEditAplicacion ? "Attention" : "Transparent"}
+                onMouseEnter={() => setHoveredEditAplicacion(true)}
+                onMouseLeave={() => setHoveredEditAplicacion(false)}
+                disabled={!selectedAplicacion}
+                onClick={() => handleEditAplicacionClick(selectedAplicacion)}
+              />
+              <ToolbarButton
+                icon="delete"
+                design={isHoveredDeleteAplicacion ? "Negative" : "Transparent"}
+                onMouseEnter={() => setHoveredDeleteAplicacion(true)}
+                onMouseLeave={() => setHoveredDeleteAplicacion(false)}
+                disabled={!selectedAplicacion}
+                onClick={() => { setItemToDeleteAplicacion(selectedAplicacion); setShowConfirmAplicacion(true); }}
+              />
+            </FlexBox>
           </Toolbar>
+
           <AnalyticalTable
             data={filteredApps}
-            columns={appColumns}
-            selectionMode="SingleSelect"
+            columns={[
+              { Header: "APPID", accessor: "APPID" },
+              { Header: "NAMEAPP", accessor: "NAMEAPP" },
+            ]}
+            onRowClick={handleAplicacionSelect}
             visibleRows={10}
-            style={{
-              background: "#345b77",
-              borderRadius: "0.4em",
-              marginTop: "0.5em",
-            }}
-            header={null}
           />
         </div>
       </SplitterLayout>
 
-      {/* Modales */}
-      {showConfirmModal && (
+      {/* MODALES CRUD PARA ROLES */}
+      <ReusableModal
+        open={modalType === "create" && modalContext === "rol"}
+        onClose={closeModal}
+        title="Crear Nuevo Rol"
+        fields={[
+          { label: 'ID de Rol', name: 'ROLEID', required: true },
+          { label: 'Nombre de Rol', name: 'ROLENAME', required: true },
+          { label: 'Descripción', name: 'DESCRIPTION', required: false }
+        ]}
+        onSubmit={(rolData) => {
+          closeModal();
+        }}
+        submitButtonText="Crear Rol"
+      />
+      <ReusableModal
+        open={showEditRol}
+        onClose={() => setShowEditRol(false)}
+        title="Editar Rol"
+        fields={[
+          { label: 'ID de Rol', name: 'ROLEID', required: true },
+          { label: 'Nombre de Rol', name: 'ROLENAME', required: true },
+          { label: 'Descripción', name: 'DESCRIPTION', required: false }
+        ]}
+        initialData={editingRol}
+        onSubmit={(rolData) => {
+          setShowEditRol(false);
+          setEditingRol(null);
+        }}
+        submitButtonText="Guardar Cambios"
+      />
+      {isRolDetailModalOpen && selectedRolDetails && (
         <AlertModal
-          open={showConfirmModal}
-          onClose={() => setShowConfirmModal(false)}
-          title="Confirmar eliminación"
-          buttonText="Cerrar"
-          message={<Text>¿Está seguro de eliminar el rol seleccionado?</Text>}
-        />
-      )}
-      {showCreateModal && (
-        <ReusableModal
-          open={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          title="Crear nuevo rol"
-          fields={[]}
-          onSubmit={() => setShowCreateModal(false)}
-          submitButtonText="Crear"
-        />
-      )}
-      {showEditModal && (
-        <ReusableModal
-          open={showEditModal}
-          onClose={() => setShowEditModal(false)}
-          title="Editar rol"
-          fields={[]}
-          initialData={editingRole}
-          onSubmit={() => setShowEditModal(false)}
-          submitButtonText="Guardar"
-        />
-      )}
-      {selectedRoleDetails && (
-        <AlertModal
-          open={isDetailModalOpen}
-          onClose={() => setIsDetailModalOpen(false)}
+          open={isRolDetailModalOpen}
+          onClose={() => setIsRolDetailModalOpen(false)}
           title="Detalles del Rol"
           buttonText="Cerrar"
           message={
-            <FlexBox direction="Column" className={styles.AlertContent}>
-              <FlexBox className={styles.AlertRow}>
-                <Label>ID Rol:</Label>
-                <Text>{selectedRoleDetails.ROLEID}</Text>
+            <FlexBox direction="Column">
+              <FlexBox>
+                <Label>ID de Rol:</Label>
+                <Text>{selectedRolDetails.ROLEID}</Text>
               </FlexBox>
-              <FlexBox className={styles.AlertRow}>
-                <Label>Nombre del Rol:</Label>
-                <Text>{selectedRoleDetails.ROL}</Text>
+              <FlexBox>
+                <Label>Nombre:</Label>
+                <Text>{selectedRolDetails.ROLENAME}</Text>
+              </FlexBox>
+              <FlexBox>
+                <Label>Descripción:</Label>
+                <Text>{selectedRolDetails.DESCRIPTION || "N/A"}</Text>
               </FlexBox>
             </FlexBox>
           }
         />
       )}
+      <AlertModal
+        open={showConfirmRol}
+        onClose={() => setShowConfirmRol(false)}
+        title="Confirmar eliminación"
+        buttonText="Cerrar"
+        message={
+          <Text>¿Está seguro de eliminar el rol seleccionado?</Text>
+        }
+      />
+
+      {/* MODALES CRUD PARA APLICACIONES */}
+      <ReusableModal
+        open={modalType === "create" && modalContext === "aplicacion"}
+        onClose={closeModal}
+        title="Crear Nueva Aplicación"
+        fields={[
+          { label: 'ID de Aplicación', name: 'APPID', required: true },
+          { label: 'Nombre de Aplicación', name: 'Aplicacion', required: true }
+        ]}
+        onSubmit={(appData) => {
+          closeModal();
+        }}
+        submitButtonText="Crear Aplicación"
+      />
+      <ReusableModal
+        open={showEditAplicacion}
+        onClose={() => setShowEditAplicacion(false)}
+        title="Editar Aplicación"
+        fields={[
+          { label: 'ID de Aplicación', name: 'APPID', required: true },
+          { label: 'Nombre de Aplicación', name: 'Aplicacion', required: true }
+        ]}
+        initialData={editingAplicacion}
+        onSubmit={(appData) => {
+          setShowEditAplicacion(false);
+          setEditingAplicacion(null);
+        }}
+        submitButtonText="Guardar Cambios"
+      />
+      {isAplicacionDetailModalOpen && selectedAplicacionDetails && (
+        <AlertModal
+          open={isAplicacionDetailModalOpen}
+          onClose={() => setIsAplicacionDetailModalOpen(false)}
+          title="Detalles de la Aplicación"
+          buttonText="Cerrar"
+          message={
+            <FlexBox direction="Column">
+            <FlexBox>
+              <Label>ID Aplicación:</Label>
+              <Text>{selectedAplicacionDetails.APPID}</Text>
+            </FlexBox>
+            <FlexBox>
+              <Label>Nombre:</Label>
+              <Text>{selectedAplicacionDetails.NAMEAPP }</Text>
+            </FlexBox>
+            <FlexBox>
+              <Label>Descripción:</Label>
+              <Text>{selectedAplicacionDetails.DESCRIPTION  || "N/A"}</Text>
+            </FlexBox>
+          </FlexBox>
+          }
+        />
+      )}
+      <AlertModal
+        open={showConfirmAplicacion}
+        onClose={() => setShowConfirmAplicacion(false)}
+        title="Confirmar eliminación"
+        buttonText="Cerrar"
+        message={
+          <Text>¿Está seguro de eliminar la aplicación seleccionada?</Text>
+        }
+      />
     </Page>
   );
 }
