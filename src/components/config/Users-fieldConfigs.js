@@ -1,5 +1,12 @@
 export const userCreationFields = [
   {
+    name: "USERID",
+    type: "text",
+    label: "Identificador de Usuario",
+    placeholder: "USER1",
+    required: true,
+  },
+  {
     name: "USERNAME",
     type: "text",
     label: "Nombre de Usuario",
@@ -115,12 +122,12 @@ export const userEditFields = [
     label: "ID de Empleado",
   },
   {
-    name: "ACTIVED",
+    name: "DETAIL_ROW.ACTIVED",
     type: "checkbox",
     label: "Usuario Activo",
   },
   {
-    name: "DELETED",
+    name: "DETAIL_ROW.DELETED",
     type: "checkbox",
     label: "Usuario Eliminado",
   },

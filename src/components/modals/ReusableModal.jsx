@@ -27,12 +27,44 @@ const ReusableModal = ({
     const [showErrorAlert, setShowErrorAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
 
+    // Obtener un valor anidado (por ejemplo "DETAIL_ROW.ACTIVED")
+    const getNestedValue = (obj, path) => {
+        return path.split('.').reduce((acc, key) => (acc ? acc[key] : undefined), obj);
+    };
+
+    //  Asignar un valor anidado (por ejemplo "DETAIL_ROW.ACTIVED" = true)
+    const setNestedValue = (obj, path, value) => {
+        const keys = path.split('.');
+        const lastKey = keys.pop();
+        const deep = keys.reduce((acc, key) => {
+            if (!acc[key]) acc[key] = {};
+            return acc[key];
+        }, obj);
+        deep[lastKey] = value;
+    };
+    // Convierte claves tipo "DETAIL_ROW.ACTIVED" en un objeto anidado real
+    const unflattenObject = (obj) => {
+        const result = {};
+        for (const key in obj) {
+            const keys = key.split('.');
+            keys.reduce((acc, part, index) => {
+                if (index === keys.length - 1) {
+                    acc[part] = obj[key];
+                } else {
+                    acc[part] = acc[part] || {};
+                }
+                return acc[part];
+            }, result);
+        }
+        return result;
+    };
+
     useEffect(() => {
         if (open) {
             const initialFormData = {};
             fields.forEach(field => {
                 initialFormData[field.name] =
-                    initialData[field.name] ??
+                    getNestedValue(initialData, field.name) ??
                     field.default ??
                     (field.type === 'checkbox' ? false : '');
             });
@@ -42,10 +74,11 @@ const ReusableModal = ({
     }, [open]);
 
     const handleInputChange = (fieldName, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [fieldName]: value
-        }));
+        setFormData(prev => {
+            const updated = { ...prev };
+            setNestedValue(updated, fieldName, value);
+            return updated;
+        });
         if (errors[fieldName]) {
             setErrors(prev => ({
                 ...prev,
@@ -84,7 +117,9 @@ const ReusableModal = ({
             return;
         }
 
-        onSubmit(formData);
+        const structuredData = unflattenObject(formData);
+        onSubmit(structuredData);
+
         onClose();
     };
 

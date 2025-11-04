@@ -2,7 +2,9 @@ import styles from '../styles/Users.module.css';
 import ReusableModal from '../components/modals/ReusableModal';
 import { userEditFields, userCreationFields } from '../components/config/Users-fieldConfigs';
 import AlertModal from '../components/modals/AlertModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { getUsersAllService, createUserService, updateUserService, deleteUserService } from '../services/usersService.js';
+import { DbContext } from "../contexts/dbContext";
 import {
   Page,
   Bar,
@@ -19,35 +21,6 @@ import {
   Icon
 } from '@ui5/webcomponents-react';
 
-// Datos de ejemplo 
-const initialUsers = [
-  {
-    USERID: "001",
-    USERNAME: "Johnathan Doe",
-    COMPANYID: 101,
-    CEDIID: 5,
-    EMPLOYEEID: 45012,
-    EMAIL: "john.doe@examplecorp.com",
-    ACTIVED: true,
-    DELETED: false,
-    ALIAS: "JohnnyD",
-    PHONENUMBER: "+525512345678",
-    EXTENSION: "301",
-  },
-  {
-    USERID: "002",
-    USERNAME: "Ana García",
-    COMPANYID: 102,
-    CEDIID: 6,
-    EMPLOYEEID: 45013,
-    EMAIL: "ana.garcia@examplecorp.com",
-    ACTIVED: false,
-    DELETED: false,
-    ALIAS: "Anita",
-    PHONENUMBER: "+525598765432",
-    EXTENSION: "302",
-  },
-];
 
 // Columnas de la tabla
 const userColumns = [
@@ -65,8 +38,8 @@ const userColumns = [
   { Header: "Teléfono", accessor: "PHONENUMBER" },
   { Header: "Extensión", accessor: "EXTENSION" },
   {
-    Header: "Activo", accessor: "ACTIVED",
-  Cell: ({ value }) => {
+    Header: "Activo", accessor: "DETAIL_ROW.ACTIVED",
+    Cell: ({ value }) => {
       const isActive = value;
       const statusClass = isActive ? styles.statusActive : styles.statusInactive;
 
@@ -82,7 +55,11 @@ const userColumns = [
 
 
 export default function Users() {
-
+  //base de datos
+  const { dbServer } = useContext(DbContext);
+  //cargar datos de usuarios desde el servicio
+  const [isLoading, setIsLoading] = useState(true); // Inicia en true para la carga inicial
+  const [error, setError] = useState(null);
   //Controlar el "hover" de los botones del crud------------------------------------
   const [isHoveredDelete, setisHoveredDelete] = useState(false);
   const [isHoveredAdd, setisHoveredAdd] = useState(false);
@@ -91,11 +68,38 @@ export default function Users() {
   //------------------------------------------------------------------------------
   //Funcionamiento de la barra de busqueda------------------------------------
   // Estado para guardar la lista original de usuarios (inmutable)
-  const [allUsers, setAllUsers] = useState(initialUsers);
+  const [allUsers, setAllUsers] = useState([]);
 
   // Estado para guardar la lista que se mostrará en la tabla (puede cambiar)
-  const [filteredUsers, setFilteredUsers] = useState(initialUsers);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  // Cargar los datos de usuarios al montar el componente
+  /**
+    * Carga la lista inicial de usuarios desde el backend.
+    * @param {string} dbServer - El servidor de base de datos (ej. 'MongoDB')
+    */
+  const loadUsers = async (dbServer) => {
+    // Pone la UI en estado de "cargando"
+    setIsLoading(true);
+    setError(null);
 
+    try {
+      // Llama a tu servicio 'get'
+      const usersFromDB = await getUsersAllService(dbServer);
+      // Guarda la lista de usuarios en tus estados
+      setAllUsers(usersFromDB);
+      setFilteredUsers(usersFromDB);
+
+    } catch (err) {
+      // Si algo falla, guarda el error para mostrarlo
+      console.error("Error al cargar usuarios:", err);
+      setError(`Error al cargar la lista: ${err.message}`);
+    } finally {
+      // Se ejecuta siempre (al éxito o al fallo) para quitar el "cargando"
+      setIsLoading(false);
+    }
+  };
+
+  //****************Filtro de la barra************/
   const handleSearch = (event) => {
     // Obtiene el texto de búsqueda del input y lo convierte a minúsculas.
     const query = event.target.value.toLowerCase();
@@ -144,67 +148,154 @@ export default function Users() {
     }
 
   };
+
   // Estados para controlar la visibilidad de los modales de crear y editar
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   //************Crear******************************** */
-  const handleCreateUser = (userData) => {
-    // 'userData' son los datos que vienen del formulario del modal
-    console.log('Crear usuario:', userData);
+  const handleCreateUser = async (userData) => {
 
-    // 1. Simulamos un ID único (en un caso real, esto lo daría la BD)
-    // Usar la fecha actual en milisegundos es una forma simple de simular un ID.
-    // Lo convertimos a string para que coincida con tus otros USERID.
-    const newId = Date.now().toString();
+    // Activa el estado de "cargando" y limpia errores
+    setIsLoading(true);
+    setError(null);
 
-    // 2. Creamos el objeto de usuario completo
-    const newUser = {
-      ...userData,
-      USERID: newId // Asignamos el nuevo ID simulado
-      // Asegúrate de que 'userData' (del modal) ya traiga los demás campos:
-      // USERNAME, COMPANYID, CEDIID, etc.
-    };
+    try {
+      // Preparamos el objeto completo
+      // 1Desestructuramos 'userData'
+      // - Sacamos 'ACTIVED' y 'DELETED' para usarlos en DETAIL_ROW.
+      // - El resto de los campos (USERID, USERNAME, EMAIL, etc.) 
+      //   se guardan en la variable 'rest'.
+      const { ACTIVED, DELETED, ...rest } = userData;
 
-    // 3. Añadimos el nuevo usuario al INICIO de ambas listas
-    // Esto crea un nuevo array con el 'newUser' primero,
-    // seguido de todos los usuarios anteriores.
-    setAllUsers(prevUsers => [newUser, ...prevUsers]);
-    setFilteredUsers(prevUsers => [newUser, ...prevUsers]);
+      //  Preparamos el objeto 'UsuarioInput' SIN los campos sobrantes
+      const newUserInput = {
+        // 'rest' contiene todos los campos EXCEPTO ACTIVED y DELETED
+        ...rest,
+        //  Construimos el 'DETAIL_ROW' con los valores que sacamos
+        DETAIL_ROW: {
+          ACTIVED: ACTIVED || false,
+          DELETED: DELETED || false,
+          DETAIL_ROW_REG: []
+        }
+      };
 
-    // 4. Cerramos el modal
-    setShowCreateModal(false);
+      console.log('Objeto final enviado a la API:', newUserInput);
+
+      // 3. Llama al servicio de la API (asumo 'MongoDB' como en loadUsers)
+      const updatedUserList = await createUserService(newUserInput, dbServer);
+
+      if (!updatedUserList || typeof updatedUserList !== 'object') {
+        // Si 'dataRes' no vino o no es un objeto, lanza un error
+        throw new Error("La API no devolvió el objeto de usuario creado.");
+      }
+
+      // 5. Añade el nuevo usuario al INICIO de ambas listas
+      //    (Esta es tu lógica de simulación, ¡pero con datos reales!)
+      setAllUsers(prevUsers => [...prevUsers, updatedUserList]);
+      setFilteredUsers(prevUsers => [...prevUsers, updatedUserList]);
+      // 5. Cierra el modal SÓLO si todo salió bien
+      setShowCreateModal(false);
+
+    } catch (err) {
+      // 6. Si la API falla, muestra el error
+      console.error("Error al crear usuario:", err);
+      setError(`Error al crear: ${err.message}`);
+      // (No cerramos el modal, para que el usuario pueda reintentar)
+    } finally {
+      // 7. Se ejecuta siempre (éxito o error) para detener el "cargando"
+      setIsLoading(false);
+    }
   };
   //************Edit******************************** */
 
   // FUNCIÓN 2: Para el botón "Guardar" de DENTRO del modal
-  const handleEditUser = (updatedUserData) => {
-    // 'updatedUserData' son los datos que vienen del formulario del modal
-    console.log('Guardando cambios:', updatedUserData);
+  const handleEditUser = async (updatedFormData) => {
+    console.log('Guardando cambios:', updatedFormData);
 
-    // 1. AHORA SÍ: Lee 'editingUser' del estado.
-    // En este punto, 'editingUser' SÍ tiene el valor que guardamos en handleEditClick.
-    const userIdToUpdate = editingUser.USERID;
+    setIsLoading(true);
+    setError(null);
 
-    // 2. Crea el objeto actualizado
-    const updatedUser = { ...editingUser, ...updatedUserData };
+    try {
+      // Lee el usuario ORIGINAL del estado (el que se abrió al editar)
+      //  'editingUser' tiene el USERID y los datos que no están en el form.
 
-    // 3. Actualiza ambas listas
-    setAllUsers(prevUsers =>
-      prevUsers.map(user =>
-        user.USERID === userIdToUpdate ? updatedUser : user
-      )
-    );
-    setFilteredUsers(prevUsers =>
-      prevUsers.map(user =>
-        user.USERID === userIdToUpdate ? updatedUser : user
-      )
-    );
+      // Prepara el objeto final para la API
+      // Combina el usuario original con los nuevos datos del form
+      const mergedUserData = { ...editingUser, ...updatedFormData };
 
-    // 4. Cierra el modal y limpia todo
-    setShowEditModal(false);
-    setEditingUser(null);
-    setSelectedRow(null);
+      let payload; // 1. Declara la variable 'payload' AFUERA del 'if'
+
+      // 2. Limpia el objeto según la base de datos
+      if (dbServer === 'MongoDB') {
+        const {
+          // Campos del formulario que no van en el nivel superior
+          ACTIVED, DELETED,
+          // Campos específicos de Mongo
+          _id, REGUSER, REGDATE, REGTIME, MODUSER, MODDATE, MODTIME, __v,
+          ...rest
+        } = mergedUserData;
+
+        payload = rest; // 3. Asigna el objeto limpio a 'payload'
+
+      } else if (dbServer === 'AZURECOSMOS') {
+        const {
+          // Campos del formulario que no van en el nivel superior
+          ACTIVED, DELETED,
+          // Campos específicos de Cosmos
+          id, _ts, _attachments, _etag, _self, _rid,
+          ...rest
+        } = mergedUserData;
+
+        payload = rest; // 3. Asigna el objeto limpio a 'payload'
+
+      } else {
+        // Es buena idea tener un caso por defecto
+        console.error("Base de datos no soportada:", dbServer);
+        // Si no se reconoce, al menos quita los campos del form
+        const { ACTIVED, DELETED, ...rest } = mergedUserData;
+        payload = rest;
+      }
+
+      // 4. Ahora SÍ puedes USAR 'payload'
+      //    Contiene el objeto limpio (sin campos de BD ni ACTIVED/DELETED)
+      const finalUserData = {
+        ...payload
+      };
+
+      console.log('Objeto final enviado a la API (Update):', finalUserData);
+
+      // Llama al servicio de la API
+      const updatedUserFromDB = await updateUserService(finalUserData, dbServer);
+
+      if (!updatedUserFromDB || typeof updatedUserFromDB !== 'object') {
+        throw new Error("La API no devolvió el objeto de usuario actualizado.");
+      }
+      console.log("Respuesta API",updatedUserFromDB);
+      
+      // Actualiza ambas listas 
+      setAllUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.USERID === updatedUserFromDB.USERID ? updatedUserFromDB : user
+        )
+      );
+      setFilteredUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.USERID === updatedUserFromDB.USERID ? updatedUserFromDB : user
+        )
+      );
+
+      // 6. Cierra el modal y limpia todo
+      setShowEditModal(false);
+      setEditingUser(null);
+      setSelectedRow(null);
+
+    } catch (err) {
+      console.error("Error al actualizar usuario:", err);
+      setError(`Error al actualizar: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // FUNCIÓN 1: Para el botón "Editar" de la barra de herramientas
@@ -240,35 +331,47 @@ export default function Users() {
     setSelectedUserData(null);
   };
   //************Delete******************************** */
-  const handleDeleteClick = ({ USERID }) => {
-    console.log(`BORRANDO el item con id: ${USERID}`);
-    //Simula el borrado en la lista de datos "maestra"
-    setAllUsers(prevUsers =>
-      prevUsers.filter(user => user.USERID !== USERID)
-    );
-
-    // Simula el borrado en la lista filtrada (la que ve el usuario)
-    setFilteredUsers(prevUsers =>
-      prevUsers.filter(user => user.USERID !== USERID)
-    );
-
-    //  Limpia la selección para deshabilitar los botones
-    setSelectedRow(null);
-  };
-
-  // Esta es la función que llama el botón
-  // Esta es la función que maneja el cierre del modal
-  const handleModalClose = (event) => {
-    //  Cierra el modal sin importar lo que se presionó
+  const handleModalClose = async (event) => {
+    // Cierra el modal en cualquier caso
     setShowConfirmModal(false);
 
-    // Comprueba qué botón se presionó
+    // Comprueba si el botón presionado fue "Sí"
     if (event === "Sí") {
-      // Si fue "Sí", ejecuta el borrado real con el item guardado
-      handleDeleteClick(itemToDelete);
+      // Si fue "Sí", inicia el proceso de borrado
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        if (!itemToDelete) {
+          throw new Error("No se ha seleccionado ningún usuario.");
+        }
+
+        // Obtenemos el ID del item guardado
+        const userIdToDelete = itemToDelete.USERID;
+
+        // Llama al servicio de la API con SÓLO EL ID
+        await deleteUserService(userIdToDelete, dbServer);
+
+        // Si la API tuvo éxito, actualiza el estado LOCALMENTE
+        setAllUsers(prevUsers =>
+          prevUsers.filter(user => user.USERID !== userIdToDelete)
+        );
+        setFilteredUsers(prevUsers =>
+          prevUsers.filter(user => user.USERID !== userIdToDelete)
+        );
+
+        // 6. Limpia la selección
+        setSelectedRow(null);
+
+      } catch (err) {
+        console.error("Error al eliminar usuario:", err);
+        setError(`Error al eliminar: ${err.message}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
-    // Limpia el item guardado
+    // 7. Limpia el item guardado (se ejecuta si fue "Sí" o "No")
     setItemToDelete(null);
   };
   // Función para *abrir* el modal de confirmación
@@ -277,6 +380,16 @@ export default function Users() {
     setShowConfirmModal(true); // Abre el modal
   };
 
+
+  //use effect para cargar los datos al iniciar la pagina
+  // Este Hook se ejecuta automáticamente cuando el componente se "monta" (carga)
+  useEffect(() => {
+
+    // Llama a la función para cargar los datos
+    loadUsers(dbServer);
+
+  }, []); // El array vacío [] es MUY importante. 
+  // Le dice a React que ejecute esto solo UNA VEZ.
   //-----------------------------------------------------------------------------
   return (
     <Page className={styles.pageContainer}>
@@ -289,6 +402,7 @@ export default function Users() {
         onRowSelect={handleRowSelect}
         filterable
         sortable
+        loading={isLoading}
         visibleRows={12}
         noDataText="No se encontraron registros"
         header={
@@ -394,7 +508,7 @@ export default function Users() {
               </FlexBox>
               <FlexBox className={styles.AlertRow}>
                 <Label wrappingType="Normal" showColon={true}>Borrado</Label>
-                <Text>{selectedUserData.DELETED ? "Sí" : "No"}</Text>
+                <Text>{selectedUserData.DETAIL_ROW.DELETED ? "Sí" : "No"}</Text>
               </FlexBox>
             </FlexBox>
           }
@@ -409,6 +523,16 @@ export default function Users() {
       >
         ¿Está seguro de que desea eliminarlo?
       </MessageBox>
+      {error && (
+        <MessageBox
+          open={!!error}
+          type="Error"
+          titleText="Error de Carga"
+          onClose={() => setError(null)}
+        >
+          {error}
+        </MessageBox>
+      )}
     </Page>
 
   );
