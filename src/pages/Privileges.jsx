@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from "react";
 import AlertModal from "../components/modals/AlertModal";
 import ReusableModal from "../components/modals/ReusableModal";
 import styles from "../styles/Roles.module.css";
+import { fetchPrivilegesData } from "../services/privilegesService";
 import {
   Page,
   Bar,
@@ -14,40 +15,12 @@ import {
   ToolbarButton,
   Text,
   Label,
-  Icon
+  Icon,
+  Select,
+  Option
 } from "@ui5/webcomponents-react";
 
 import { DbContext } from "../contexts/dbContext";
-
-const viewsData = [
-  { VIEWID: "V001", Descripcion: "Vista principal" },
-  { VIEWID: "V002", Descripcion: "Panel de control" },
-  { VIEWID: "V003", Descripcion: "Vista de reportes" }
-];
-
-const processesByView = {
-  V001: [
-    { PROCESSID: "P001", Descripcion: "Gestión de usuarios" },
-    { PROCESSID: "P002", Descripcion: "Carga de datos" }
-  ],
-  V002: [
-    { PROCESSID: "P003", Descripcion: "Monitoreo del sistema" },
-    { PROCESSID: "P004", Descripcion: "Configuración avanzada" }
-  ],
-  V003: [{ PROCESSID: "P005", Descripcion: "Generar informes" }]
-};
-
-const privilegesByProcess = {
-  P001: [
-    { PRIVILEGIEID: "PR001", Descripcion: "Lectura de usuarios" },
-    { PRIVILEGIEID: "PR002", Descripcion: "Creación de usuarios" }
-  ],
-  P002: [{ PRIVILEGIEID: "PR003", Descripcion: "Importar datos" }],
-  P003: [
-    { PRIVILEGIEID: "PR004", Descripcion: "Monitoreo" },
-    { PRIVILEGIEID: "PR005", Descripcion: "Reinicio del sistema" }
-  ]
-};
 
 /* =======================================================
    SPLITTER LAYOUT (reutilizable)
@@ -147,8 +120,14 @@ function SplitterLayout({
    COMPONENTE PRINCIPAL
 =========================================================*/
 export default function PrivilegesLayout() {
-  const [views, setViews] = useState(viewsData);
-  const [filteredViews, setFilteredViews] = useState(viewsData);
+  // Application state
+  const [applications, setApplications] = useState([]);
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [appLoading, setAppLoading] = useState(true);
+  
+  // Data states
+  const [views, setViews] = useState([]);
+  const [filteredViews, setFilteredViews] = useState([]);
   const [selectedView, setSelectedView] = useState(null);
   const [filteredProcesses, setFilteredProcesses] = useState([]);
   const [selectedProcess, setSelectedProcess] = useState(null);
@@ -156,12 +135,11 @@ export default function PrivilegesLayout() {
 
   
   // Maps loaded from single API route (fallback to the simulated constants)
-  const [processesMap, setProcessesMap] = useState(processesByView);
-  const [privilegesMap, setPrivilegesMap] = useState(privilegesByProcess);
+  const [processesMap, setProcessesMap] = useState([]);
+  const [privilegesMap, setPrivilegesMap] = useState([]);
 
-  // API route, loading and error
-  const {dbServer} = useContext(DbContext);
-  const apiRoute = `http://localhost:3333/api/application/crud?ProcessType=getAplications&LoggedUser=EMorenoD&dbserver=${dbServer}`;
+  // API data loading states
+  const { dbServer } = useContext(DbContext);
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
@@ -223,63 +201,26 @@ export default function PrivilegesLayout() {
     setFiltered(f);
   };
 
-  // Cargar todos los datos desde una sola ruta de API
-  const fetchAllData = async () => {
-    console.log(dbServer);
+  // Cargar datos
+  const loadAllData = async () => {
     setLoadingData(true);
     setLoadError(null);
     try {
-      const res = await fetch(apiRoute, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // send an empty body for now; backend may accept filters later
-        body: JSON.stringify({})
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      const payload = data.data[0].dataRes[0]
-        || data
-        || {};
-
-      const rawViews = payload.VIEWS;
-      const rawProcessesList = payload.PROCESS;
-
-      const loadedViews = (Array.isArray(rawViews) ? rawViews : []).map((v) => {
-        const id = v.VIEWSID;
-        return {
-          VIEWSID: id,
-          Descripcion: v.description || "Sin descripcion"
-        };
-      });
-
-      let builtProcessesMap = {};
-        (Array.isArray(rawViews) ? rawViews : []).forEach((v) => {
-          const viewId = v.VIEWSID;
-          const procArray = v.PROCESS || [];
-          if (Array.isArray(procArray) && procArray.length > 0) {
-            const mapped = procArray.map((p) => {
-              const pid = p.PROCESSID;
-              let detail = null;
-              if (Array.isArray(rawProcessesList)) {
-                detail = rawProcessesList.find((rp) => (rp.PROCESSID) === pid);
-              }
-              return {
-                PROCESSID: pid,
-                Descripcion: p.description || "Sin descripcion"
-              };
-            });
-            builtProcessesMap[viewId] = mapped;
-          } else {
-            builtProcessesMap[viewId] = processesByView[viewId] || [];
-          }
-        });
-
-      setViews(loadedViews);
-      setFilteredViews(loadedViews);
-      setProcessesMap(builtProcessesMap);
+      const data = await fetchPrivilegesData(dbServer);
+      
+      setApplications(data.applications || []);
+      setViews(data.views || []);
+      setProcessesMap(data.processesMap || {});
+      setPrivilegesMap(data.privilegesMap || {});
+      
+      // Si hay una aplicación seleccionada, filtramos las vistas
+      if (selectedApp) {
+        const appViews = (data.views || []).filter(v => v.APPID === selectedApp.APPID);
+        setFilteredViews(appViews);
+      } else {
+        setFilteredViews([]);
+      }
     } catch (err) {
-      // fallback: ya están inicializados con datos simulados
       setLoadError(err.message || String(err));
     } finally {
       setLoadingData(false);
@@ -287,16 +228,18 @@ export default function PrivilegesLayout() {
   };
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    loadAllData();
+  }, [dbServer]); // Recargar cuando cambie el servidor
 
   // Seleccionar view → cargar procesos
   const handleViewSelect = (e) => {
     const row = e.detail.row.original;
     const viewKey = row?.VIEWSID;
     setSelectedView({ ...row, VIEWSID: viewKey });
-    setFilteredProcesses(processesMap[row?.VIEWSID]);
+    setFilteredProcesses(processesMap[viewKey] || []);
     setSelectedProcess(null);
+    setSelectedPrivilege(null);
+    setFilteredPrivileges([]);
   };
 
   // Seleccionar process → cargar privilegios
@@ -313,14 +256,88 @@ export default function PrivilegesLayout() {
     if (row) setSelectedPrivilege(row);
   };
 
+  // Manejar selección de aplicación
+  const handleAppSelect = (event) => {
+    const appId = event.target.value;
+ 
+    if (!appId) {
+      setSelectedApp(null);
+      setFilteredViews([]);
+      setSelectedView(null);
+      setFilteredProcesses([]);
+      setSelectedProcess(null);
+      setFilteredPrivileges([]);
+      return;
+    }
+
+    const selectedApp = applications.find(app => app.APPID === appId);
+    
+    if (selectedApp) {
+      setSelectedApp(selectedApp);
+      
+      // Filtrar vistas por aplicación
+      const appViews = views.filter(v => v.APPID === appId);
+      setFilteredViews(appViews);
+      
+      // Resetear otras selecciones
+      setSelectedView(null);
+      setSelectedProcess(null);
+      setSelectedPrivilege(null);
+      setFilteredProcesses([]);
+      setFilteredPrivileges([]);
+    }
+  };
+
   return (
     <Page className={styles.pageContainer}>
       <Bar>
         <Title>Gestión de Views, Processes y Privilegios</Title>
       </Bar>
 
+      {/* Selector de Aplicación */}
+      <Toolbar style={{ padding: '0.5rem' }}>
+        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
+          <Label>Aplicación:</Label>
+          <Select
+            onChange={(event) => {
+              handleAppSelect(event);
+            }}
+            style={{ width: '300px' }}
+            disabled={loadingData}
+          >
+            <Option value="">Seleccione una aplicación</Option>
+            {applications.map(app => (
+              <Option key={app.APPID} value={app.APPID}>
+                {app.NAME}
+              </Option>
+            ))}
+          </Select>
+          <ToolbarButton
+            icon="refresh"
+            onClick={() => {
+              loadAllData();
+            }}
+            tooltip="Recargar datos"
+          />
+        </FlexBox>
+        {loadError && (
+          <Text style={{ color: 'red', marginLeft: '1rem' }}>
+            Error: {loadError}
+          </Text>
+        )}
+      </Toolbar>
+
+      {loadError && (
+        <AlertModal
+          show={true}
+          title="Error al cargar datos"
+          message={loadError}
+          onClose={() => setLoadError(null)}
+        />
+      )}
+
       {/* ===== LAYOUT 1: VIEWS / PROCESSES ===== */}
-      <SplitterLayout height="calc(100vh - 70px)">
+      <SplitterLayout height="calc(100vh - 120px)">
         {/* Panel izquierdo: Views */}
         <div>
           <Toolbar>
@@ -503,9 +520,13 @@ export default function PrivilegesLayout() {
             </Toolbar>
 
             <AnalyticalTable
-              data={filteredPrivileges}
+              data={filteredPrivileges.map(priv => ({
+                ...priv,
+                ViewID: selectedView?.VIEWSID || '',
+                ProcessID: selectedProcess?.PROCESSID || ''
+              }))}
               columns={[
-                { Header: "PRIVILEGIEID", accessor: "PRIVILEGIEID" },
+                { Header: "PRIVILEGEID", accessor: "PRIVILEGEID" },
                 { Header: "Descripción", accessor: "Descripcion" }
               ]}
               onRowClick={handlePrivilegeSelect}
@@ -564,7 +585,7 @@ export default function PrivilegesLayout() {
               : "Editar Privilegio"
           }
           fields={[
-            { label: "PRIVILEGIEID", name: "PRIVILEGIEID" },
+            { label: "PRIVILEGEID", name: "PRIVILEGEID" },
             { label: "Descripción", name: "Descripcion" }
           ]}
           onSubmit={closeModal}
@@ -666,7 +687,7 @@ export default function PrivilegesLayout() {
           open={showEditPriv}
           onClose={() => setShowEditPriv(false)}
           title="Editar Privilegio"
-          fields={[{ label: 'PRIVILEGIEID', name: 'PRIVILEGIEID' }, { label: 'Descripción', name: 'Descripcion' }]}
+          fields={[{ label: 'PRIVILEGEID', name: 'PRIVILEGEID' }, { label: 'Descripción', name: 'Descripcion' }]}
           initialData={editingPriv}
           onSubmit={() => setShowEditPriv(false)}
           submitButtonText="Guardar"
@@ -691,9 +712,17 @@ export default function PrivilegesLayout() {
           buttonText="Cerrar"
           message={
             <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                <FlexBox>
+                <Label>Vista:</Label>
+                <Text>{selectedPrivDetails.ViewID}</Text>
+              </FlexBox>
+              <FlexBox>
+                <Label>Proceso:</Label>
+                <Text>{selectedPrivDetails.ProcessID}</Text>
+              </FlexBox>
               <FlexBox>
                 <Label>PRIVILEGIEID:</Label>
-                <Text>{selectedPrivDetails.PRIVILEGIEID}</Text>
+                <Text>{selectedPrivDetails.PRIVILEGEID}</Text>
               </FlexBox>
               <FlexBox>
                 <Label>Descripción:</Label>
