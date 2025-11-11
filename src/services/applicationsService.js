@@ -1,34 +1,4 @@
 
-const defaultViewsData = [
-  { VIEWID: "V001", Descripcion: "Vista principal" },
-  { VIEWID: "V002", Descripcion: "Panel de control" },
-  { VIEWID: "V003", Descripcion: "Vista de reportes" }
-];
-
-const defaultProcessesByView = {
-  V001: [
-    { PROCESSID: "P001", Descripcion: "Gestión de usuarios" },
-    { PROCESSID: "P002", Descripcion: "Carga de datos" }
-  ],
-  V002: [
-    { PROCESSID: "P003", Descripcion: "Monitoreo del sistema" },
-    { PROCESSID: "P004", Descripcion: "Configuración avanzada" }
-  ],
-  V003: [{ PROCESSID: "P005", Descripcion: "Generar informes" }]
-};
-
-const defaultPrivilegesByProcess = {
-  P001: [
-    { PRIVILEGIEID: "PR001", Descripcion: "Lectura de usuarios" },
-    { PRIVILEGIEID: "PR002", Descripcion: "Creación de usuarios" }
-  ],
-  P002: [{ PRIVILEGIEID: "PR003", Descripcion: "Importar datos" }],
-  P003: [
-    { PRIVILEGIEID: "PR004", Descripcion: "Monitoreo" },
-    { PRIVILEGIEID: "PR005", Descripcion: "Reinicio del sistema" }
-  ]
-};
-
 /**
  * Fetches all applications and their privilege-related data from the API
  * @param {string} dbServer - The database server to use
@@ -67,11 +37,11 @@ async function callApi(processType, body, dbServer) {
 /**
  * Agrega una nueva vista a una aplicación
  * @param {string} appId - ID de la aplicación
- * @param {object} viewData - Datos de la vista a agregar
+ * @param {object} data - Datos de la vista a agregar
  * @param {string} dbServer - Servidor de base de datos
  */
-export async function addView(appId, viewData, dbServer) {
-  return callApi('addView', { appId, viewData }, dbServer);
+export async function addView(appId, data, dbServer) {
+  return callApi('addView', { appId, data }, dbServer);
 }
 
 /**
@@ -86,34 +56,6 @@ export async function addProcess(appId, viewId, processData, dbServer) {
     appId, 
     viewId, 
     processId: processData.PROCESSID 
-  }, dbServer);
-}
-
-/**
- * Actualiza una vista existente
- * @param {string} appId - ID de la aplicación
- * @param {string} viewId - ID de la vista
- * @param {object} data - Datos actualizados de la vista
- * @param {string} dbServer - Servidor de base de datos
- */
-export async function updateView(appId, viewId, data, dbServer) {
-  return callApi('updateView', { appId, viewId, data }, dbServer);
-}
-
-/**
- * Actualiza un proceso existente
- * @param {string} appId - ID de la aplicación
- * @param {string} viewId - ID de la vista
- * @param {string} processId - ID del proceso
- * @param {object} data - Datos actualizados del proceso
- * @param {string} dbServer - Servidor de base de datos
- */
-export async function updateProcess(appId, viewId, processId, data, dbServer) {
-  return callApi('updateProcess', { 
-    appId, 
-    viewId, 
-    processId, 
-    data 
   }, dbServer);
 }
 
@@ -201,9 +143,7 @@ export async function fetchPrivilegesData(dbServer) {
           };
         });
         builtProcessesMap[viewId] = mapped;
-      } else {
-        builtProcessesMap[viewId] = defaultProcessesByView[viewId] || [];
-      }
+      } 
     });
 
     return {
@@ -215,10 +155,32 @@ export async function fetchPrivilegesData(dbServer) {
   } catch (error) {
     console.error('Error fetching privileges data:', error);
 
-    return {
-      views: defaultViewsData,
-      processesMap: defaultProcessesByView,
-      privilegesMap: defaultPrivilegesByProcess
-    };
+    return
+  }
+}
+
+/**
+ * Fetch all views from the new Views API endpoint
+ * @param {string} dbServer
+ * @returns {Promise<Array>} array of views
+ */
+export async function fetchViews(dbServer) {
+  try {
+    const url = `http://localhost:3333/api/views/crud?ProcessType=getAll&LoggedUser=EMorenoD&dbserver=${dbServer}`;
+    const resp = await fetch(url, { method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({}) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+
+    // The API may wrap the payload; try common locations
+    const payload = json.data[0] || json || [];
+
+    if (payload.dataRes && Array.isArray(payload.dataRes)) return payload.dataRes;
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching views:', error);
+    throw error;
   }
 }

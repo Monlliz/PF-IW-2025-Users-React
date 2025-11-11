@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from "react";
 import AlertModal from "../components/modals/AlertModal";
 import ReusableModal from "../components/modals/ReusableModal";
 import styles from "../styles/Roles.module.css";
-import { fetchPrivilegesData } from "../services/privilegesService";
+import { fetchPrivilegesData, fetchViews, addView, deleteHardView } from "../services/applicationsService";
 import {
   Page,
   Bar,
@@ -17,7 +17,8 @@ import {
   Label,
   Icon,
   Select,
-  Option
+  Option,
+  CheckBox
 } from "@ui5/webcomponents-react";
 
 import { DbContext } from "../contexts/dbContext";
@@ -127,6 +128,7 @@ export default function PrivilegesLayout() {
   
   // Data states
   const [views, setViews] = useState([]);
+  const [existingViews, setExistingViews] = useState([]); // Vistas con APPID del payload general
   const [filteredViews, setFilteredViews] = useState([]);
   const [selectedView, setSelectedView] = useState(null);
   const [filteredProcesses, setFilteredProcesses] = useState([]);
@@ -180,6 +182,15 @@ export default function PrivilegesLayout() {
   const [itemToDeletePriv, setItemToDeletePriv] = useState(null);
   const [selectedPrivilege, setSelectedPrivilege] = useState(null);
 
+  // Checkbox states
+  const [checkedViews, setCheckedViews] = useState({});
+  const [checkedProcesses, setCheckedProcesses] = useState({});
+  const [checkedPrivileges, setCheckedPrivileges] = useState({});
+
+  // View filtering and sorting states
+  const [viewFilterType, setViewFilterType] = useState('all'); // 'all' o 'assigned'
+  const [viewSortType, setViewSortType] = useState('name'); // 'name' o 'assigned-first'
+
   // Modales
   const [modalType, setModalType] = useState(null); 
   const [modalContext, setModalContext] = useState(null); 
@@ -189,6 +200,46 @@ export default function PrivilegesLayout() {
     setModalType(null);
     setModalContext(null);
     setModalData(null);
+  };
+
+  // Manejadores para checkboxes
+  const handleCheckBoxChange = (id, checked, setter) => {
+    setter((prev) => ({
+      ...prev,
+      [id]: checked
+    }));
+  };
+
+  // Manejador específico para checkboxes de vistas (con llamada a API)
+  const handleViewCheckBoxChange = async (viewId, checked) => {
+    // Actualizar estado local inmediatamente
+    setCheckedViews((prev) => ({
+      ...prev,
+      [viewId]: checked
+    }));
+
+    // Si no hay app seleccionada, no hacer nada
+    if (!selectedApp) return;
+
+    try {
+      if (checked) {
+        // Agregar vista a la aplicación
+        await addView(selectedApp.APPID, { VIEWSID: viewId }, dbServer);
+        console.log(`Vista ${viewId} agregada a aplicación ${selectedApp.APPID}`);
+      } else {
+        // Remover vista de la aplicación
+        await deleteHardView(selectedApp.APPID, viewId, dbServer);
+        console.log(`Vista ${viewId} removida de aplicación ${selectedApp.APPID}`);
+      }
+    } catch (error) {
+      console.error('Error al actualizar vista en aplicación:', error);
+      // Revertir cambio en caso de error
+      setCheckedViews((prev) => ({
+        ...prev,
+        [viewId]: !checked
+      }));
+      setLoadError(`Error al actualizar vista: ${error.message}`);
+    }
   };
 
   // Buscar
@@ -201,24 +252,132 @@ export default function PrivilegesLayout() {
     setFiltered(f);
   };
 
+  // Aplicar filtrado y ordenamiento a las vistas
+  const applyViewFiltersAndSort = () => {
+    // Si no hay aplicación seleccionada, no mostrar nada
+    if (!selectedApp) {
+      setFilteredViews([]);
+      return;
+    }
+
+    let result = [...(views || [])];
+
+    // Filtrar según la selección
+    if (viewFilterType === 'assigned') {
+      result = result.filter((v) => checkedViews[v.VIEWSID] === true);
+    }
+
+    // Ordenar según la selección
+    if (viewSortType === 'assigned-first') {
+      result.sort((a, b) => {
+        const aAssigned = checkedViews[a.VIEWSID] === true ? 1 : 0;
+        const bAssigned = checkedViews[b.VIEWSID] === true ? 1 : 0;
+        return bAssigned - aAssigned; // Asignadas primero
+      });
+    } else if (viewSortType === 'name') {
+      result.sort((a, b) => String(a.VIEWSID).localeCompare(String(b.VIEWSID)));
+    }
+
+    setFilteredViews(result);
+  };
+
+  // Efecto para aplicar filtros y ordenamiento cuando cambien
+  useEffect(() => {
+    applyViewFiltersAndSort();
+  }, [viewFilterType, viewSortType, checkedViews, views, selectedApp]);
+
+  // Búsqueda específica para vistas (respeta filtros y ordenamientos)
+  const handleViewSearch = (event) => {
+    // Si no hay aplicación seleccionada, no mostrar nada
+    if (!selectedApp) {
+      setFilteredViews([]);
+      return;
+    }
+
+    const q = event.target.value.toLowerCase();
+    let result = [...(views || [])];
+
+    // Aplicar búsqueda de texto
+    if (q) {
+      result = result.filter((d) =>
+        Object.values(d).some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+
+    // Aplicar filtrado
+    if (viewFilterType === 'assigned') {
+      result = result.filter((v) => checkedViews[v.VIEWSID] === true);
+    }
+
+    // Aplicar ordenamiento
+    if (viewSortType === 'assigned-first') {
+      result.sort((a, b) => {
+        const aAssigned = checkedViews[a.VIEWSID] === true ? 1 : 0;
+        const bAssigned = checkedViews[b.VIEWSID] === true ? 1 : 0;
+        return bAssigned - aAssigned;
+      });
+    } else if (viewSortType === 'name') {
+      result.sort((a, b) => String(a.VIEWSID).localeCompare(String(b.VIEWSID)));
+    }
+
+    setFilteredViews(result);
+  };
+
+  // Buscar
+
   // Cargar datos
   const loadAllData = async () => {
     setLoadingData(true);
     setLoadError(null);
     try {
-      const data = await fetchPrivilegesData(dbServer);
-      
+            const data = await fetchPrivilegesData(dbServer);
+
       setApplications(data.applications || []);
-      setViews(data.views || []);
       setProcessesMap(data.processesMap || {});
       setPrivilegesMap(data.privilegesMap || {});
-      
-      // Si hay una aplicación seleccionada, filtramos las vistas
-      if (selectedApp) {
-        const appViews = (data.views || []).filter(v => v.APPID === selectedApp.APPID);
-        setFilteredViews(appViews);
-      } else {
+
+      // Guardar las vistas procedentes del payload general para comparar
+      const existingViewsData = data.views || [];
+      setExistingViews(existingViewsData);
+
+      // Obtener vistas desde el nuevo endpoint específico de Views
+      try {
+        const apiViews = await fetchViews(dbServer);
+        console.log('Vistas obtenidas desde /api/views/crud:', apiViews);
+        const mapped = (Array.isArray(apiViews) ? apiViews : []).map((v) => ({
+          VIEWSID: v.VIEWSID,
+          Descripcion: v.DESCRIPCION || "Sin descripcion"
+        }));
+        setViews(mapped);
+
+        // No popular filteredViews aquí - solo cuando se seleccione una app
         setFilteredViews([]);
+
+        // Marcar checkboxes para las vistas que coincidan por VIEWSID
+        // Solo consideramos las vistas pertenecientes a la aplicación seleccionada
+        const initialChecked = {};
+        if (selectedApp) {
+          const appViewsToCompare = (existingViewsData || []).filter(
+            (v) => String(v.APPID) === String(selectedApp.APPID)
+          );
+          mapped.forEach((mv) => {
+            const match = appViewsToCompare.find(
+              (ev) => String(ev.VIEWSID) === String(mv.VIEWSID)
+            );
+            if (match) initialChecked[mv.VIEWSID] = true;
+          });
+        }
+        // Si no hay aplicación seleccionada, no marcamos nada
+        setCheckedViews(initialChecked);
+      } catch (errViews) {
+        // Si falla la llamada a views, mantenemos las vistas provenientes del payload general (si existen)
+        console.warn('No se pudieron obtener vistas desde /api/views/crud:', errViews);
+        setViews(existingViewsData);
+        // No mostrar vistas hasta que se seleccione una app
+        setFilteredViews([]);
+
+        // No tenemos la lista externa para comparar, conservamos checkboxes vacíos
+        setCheckedViews({});
       }
     } catch (err) {
       setLoadError(err.message || String(err));
@@ -230,6 +389,29 @@ export default function PrivilegesLayout() {
   useEffect(() => {
     loadAllData();
   }, [dbServer]); // Recargar cuando cambie el servidor
+
+  // Recalcular checkboxes cuando cambia la aplicación seleccionada
+  useEffect(() => {
+    if (!selectedApp || views.length === 0) {
+      setCheckedViews({});
+      return;
+    }
+
+    // Obtener vistas existentes de la aplicación seleccionada
+    const appExistingViews = (existingViews || []).filter(
+      (v) => String(v.APPID) === String(selectedApp.APPID)
+    );
+
+    // Marcar checkboxes para las vistas de esta aplicación que existan
+    const checked = {};
+    views.forEach((v) => {
+      const exists = appExistingViews.some(
+        (av) => String(av.VIEWSID) === String(v.VIEWSID)
+      );
+      if (exists) checked[v.VIEWSID] = true;
+    });
+    setCheckedViews(checked);
+  }, [selectedApp, views, existingViews]);
 
   // Seleccionar view → cargar procesos
   const handleViewSelect = (e) => {
@@ -270,14 +452,13 @@ export default function PrivilegesLayout() {
       return;
     }
 
-    const selectedApp = applications.find(app => app.APPID === appId);
+    const selectedAppObj = applications.find(app => app.APPID === appId);
     
-    if (selectedApp) {
-      setSelectedApp(selectedApp);
+    if (selectedAppObj) {
+      setSelectedApp(selectedAppObj);
       
-      // Filtrar vistas por aplicación
-      const appViews = views.filter(v => v.APPID === appId);
-      setFilteredViews(appViews);
+      // Mostrar todas las vistas de la API
+      setFilteredViews(views || []);
       
       // Resetear otras selecciones
       setSelectedView(null);
@@ -344,10 +525,28 @@ export default function PrivilegesLayout() {
             <Input
               icon="search"
               placeholder="Buscar vista..."
-              onInput={(e) => handleSearch(e, views, setFilteredViews)}
-              style={{ width: "80%" }}
+              onInput={handleViewSearch}
+              style={{ width: "50%" }}
             />
             <ToolbarSpacer />
+            <Label style={{ marginRight: '0.5rem' }}>Filtrar:</Label>
+            <Select
+              onChange={(e) => setViewFilterType(e.target.value)}
+              value={viewFilterType}
+              style={{ width: '150px', marginRight: '1rem' }}
+            >
+              <Option value="all">Todas las vistas</Option>
+              <Option value="assigned">Solo asignadas</Option>
+            </Select>
+            <Label style={{ marginRight: '0.5rem' }}>Ordenar:</Label>
+            <Select
+              onChange={(e) => setViewSortType(e.target.value)}
+              value={viewSortType}
+              style={{ width: '150px' }}
+            >
+              <Option value="name">Por nombre</Option>
+              <Option value="assigned-first">Asignadas primero</Option>
+            </Select>
           </Toolbar>
 
           <Toolbar style={{ paddingTop: 0, background: 'none', boxShadow: 'none' }}>
@@ -389,6 +588,16 @@ export default function PrivilegesLayout() {
           <AnalyticalTable
             data={filteredViews}
             columns={[
+              { 
+                Header: "Asignado", 
+                accessor: "asignado",
+                Cell: (row) => (
+                  <CheckBox
+                    checked={checkedViews[row.row.original.VIEWSID] || false}
+                    onChange={(e) => handleViewCheckBoxChange(row.row.original.VIEWSID, e.target.checked)}
+                  />
+                )
+              },
               { Header: "VIEWID", accessor: "VIEWSID" },
               { Header: "Descripción", accessor: "Descripcion" }
             ]}
@@ -456,6 +665,16 @@ export default function PrivilegesLayout() {
             <AnalyticalTable
               data={filteredProcesses}
               columns={[
+                { 
+                  Header: "Asignado", 
+                  accessor: "asignado",
+                  Cell: (row) => (
+                    <CheckBox
+                      checked={checkedProcesses[row.row.original.PROCESSID] || false}
+                      onChange={(e) => handleCheckBoxChange(row.row.original.PROCESSID, e.target.checked, setCheckedProcesses)}
+                    />
+                  )
+                },
                 { Header: "PROCESSID", accessor: "PROCESSID" },
                 { Header: "Descripción", accessor: "Descripcion" }
               ]}
@@ -526,6 +745,16 @@ export default function PrivilegesLayout() {
                 ProcessID: selectedProcess?.PROCESSID || ''
               }))}
               columns={[
+                { 
+                  Header: "Asignado", 
+                  accessor: "asignado",
+                  Cell: (row) => (
+                    <CheckBox
+                      checked={checkedPrivileges[row.row.original.PRIVILEGEID] || false}
+                      onChange={(e) => handleCheckBoxChange(row.row.original.PRIVILEGEID, e.target.checked, setCheckedPrivileges)}
+                    />
+                  )
+                },
                 { Header: "PRIVILEGEID", accessor: "PRIVILEGEID" },
                 { Header: "Descripción", accessor: "Descripcion" }
               ]}
