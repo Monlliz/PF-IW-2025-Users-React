@@ -90,8 +90,6 @@ export async function fetchPrivilegesData(dbServer) {
 
     // Extraer la respuesta principal
     const dataRes = data.data?.[0]?.dataRes || [];
-    console.log('dataRes:', dataRes);
-
     // Cada elemento en dataRes es una aplicación
     const applications = dataRes.map(app => ({
       APPID: app.APPID,
@@ -116,34 +114,46 @@ export async function fetchPrivilegesData(dbServer) {
       loadedViews = [...loadedViews, ...appViewsTransformed];
     });
 
-    // Build processes and privileges maps
+    // Build processes and privileges maps from ALL applications
     let builtProcessesMap = {};
     let builtPrivilegesMap = {};
     
-    (Array.isArray(rawViews) ? rawViews : []).forEach((v) => {
-      const viewId = v.VIEWSID;
-      const procArray = v.PROCESS || [];
-      
-      if (Array.isArray(procArray) && procArray.length > 0) {
-        const mapped = procArray.map((p) => {
-          const pid = p.PROCESSID;
-          
-          // Extract privileges for this process
-          if (Array.isArray(p.PRIVILEGE)) {
-            builtPrivilegesMap[pid] = p.PRIVILEGE.map(priv => ({
-              PRIVILEGEID: priv.PRIVILEGEID,
-              Descripcion: priv.PRIVILEGEID // Using ID as description until API provides it
-            }));
+    // Iterar sobre TODAS las aplicaciones para construir processesMap con APPID
+    dataRes.forEach((app) => {
+      const appId = app.APPID;
+      const appViews = app.VIEWS || [];
+      appViews.forEach((v) => {
+        const viewId = v.VIEWSID;
+        const procArray = v.PROCESS || [];
+
+        if (Array.isArray(procArray) && procArray.length > 0) {
+          const mapped = procArray.map((p) => {
+            const pid = p.PROCESSID;
+            
+            // Extract privileges for this process
+            if (Array.isArray(p.PRIVILEGE)) {
+              builtPrivilegesMap[pid] = p.PRIVILEGE.map(priv => ({
+                PRIVILEGEID: priv.PRIVILEGEID,
+                Descripcion: priv.PRIVILEGEID // Using ID as description until API provides it
+              }));
+            }
+            
+            return {
+              PROCESSID: pid,
+              Descripcion: p.description || "Sin descripcion",
+              VIEWID: viewId,
+              APPID: appId // Incluir APPID en cada proceso
+            };
+          });
+          // NO sobrescribir, ACUMULAR procesos por viewId
+          // Si ya existe, concatenar; si no existe, crear nuevo array
+          if (builtProcessesMap[viewId]) {
+            builtProcessesMap[viewId] = [...builtProcessesMap[viewId], ...mapped];
+          } else {
+            builtProcessesMap[viewId] = mapped;
           }
-          
-          return {
-            PROCESSID: pid,
-            Descripcion: p.description || "Sin descripcion",
-            VIEWID: viewId // Add reference to parent view
-          };
-        });
-        builtProcessesMap[viewId] = mapped;
-      } 
+        }
+      });
     });
 
     return {
@@ -160,27 +170,154 @@ export async function fetchPrivilegesData(dbServer) {
 }
 
 /**
- * Fetch all views from the new Views API endpoint
+ * Fetch all labels (views, processes, privileges) from the unified Labels API endpoint
+ * @param {string} dbServer
+ * @param {string} loggedUser
+ * @returns {Promise<{views: Array, processes: Array, privileges: Array}>}
+ */
+async function fetchLabelsFromApi(dbServer, loggedUser = 'MIGUELLOPEZ') {
+  try {
+    const url = `http://localhost:3034/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+    const resp = await fetch(url, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({}) 
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+
+    // Extract dataRes from the response
+    const dataRes = json.data[0].dataRes || [];
+    
+    // Initialize collections
+    const views = [];
+    const processes = [];
+    const privileges = [];
+
+    // Process each label category
+    dataRes.forEach(item => {
+      if (item.IDETIQUETA === 'IdVistas') {
+        const viewValues = Array.isArray(item.valores) ? item.valores : [item.valores];
+        viewValues.forEach(v => {
+          views.push({
+            IdValor: v.IDVALOR,
+            VALOR: v.VALOR
+          });
+        });
+      } else if (item.IDETIQUETA === 'IdProcesos' && item.valores) {
+        const processValues = Array.isArray(item.valores) ? item.valores : [item.valores];
+        processValues.forEach(p => {
+          processes.push({
+            IdValor: p.IDVALOR,
+            VALOR: p.VALOR
+          });
+        });
+      } else if (item.IDETIQUETA === 'IdPrivilegios' && item.valores) {
+        const privilegeValues = Array.isArray(item.valores) ? item.valores : [item.valores];
+        privilegeValues.forEach(pr => {
+          privileges.push({
+            IdValor: pr.IDVALOR,
+            VALOR: pr.VALOR
+          });
+        });
+      }
+    });
+
+    return { views, processes, privileges };
+  } catch (error) {
+    console.error('Error fetching labels from API:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch all views from the unified Labels API endpoint
  * @param {string} dbServer
  * @returns {Promise<Array>} array of views
  */
 export async function fetchViews(dbServer) {
   try {
-    const url = `http://localhost:3333/api/views/crud?ProcessType=getAll&LoggedUser=EMorenoD&dbserver=${dbServer}`;
-    const resp = await fetch(url, { method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({}) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json();
-
-    // The API may wrap the payload; try common locations
-    const payload = json.data[0] || json || [];
-
-    if (payload.dataRes && Array.isArray(payload.dataRes)) return payload.dataRes;
-
-    return [];
+    const { views } = await fetchLabelsFromApi(dbServer);
+    return views;
   } catch (error) {
     console.error('Error fetching views:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch all processes from the unified Labels API endpoint
+ * @param {string} dbServer
+ * @returns {Promise<Array>} array of processes
+ */
+export async function fetchProcesses(dbServer) {
+  try {
+    const { processes } = await fetchLabelsFromApi(dbServer);
+    return processes;
+  } catch (error) {
+    console.error('Error fetching processes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch all privileges from the unified Labels API endpoint
+ * @param {string} dbServer
+ * @returns {Promise<Array>} array of privileges
+ */
+export async function fetchPrivileges(dbServer) {
+  try {
+    const { privileges } = await fetchLabelsFromApi(dbServer);
+    return privileges;
+  } catch (error) {
+    console.error('Error fetching privileges:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a label (view/process/privilege) using the unified Labels API.
+ * Reusable: pass the `IDETIQUETA` you need (e.g. 'IdVistas', 'IdProcesos', 'IdPrivilegios').
+ * @param {{idetiqueta: string, idvalor: string, valor: string, alias?: string}} label
+ * @param {string} dbServer
+ * @param {string} loggedUser
+ * @returns {Promise<any>} API response
+ */
+export async function createLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+
+  const url = `http://localhost:3034/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+
+  const body = {
+    operations: [
+      {
+        collection: 'values',
+        action: 'CREATE',
+        payload: {
+          IDETIQUETA: label.idetiqueta,
+          IDVALOR: label.idvalor,
+          VALOR: label.valor,
+          ALIAS: label.alias || ''
+        }
+      }
+    ]
+  };
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Labels API error ${resp.status}: ${text}`);
+    }
+
+    const json = await resp.json();
+    return json;
+  } catch (error) {
+    console.error('createLabel error:', error);
     throw error;
   }
 }
