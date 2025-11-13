@@ -152,4 +152,21 @@ export const getCedi = async (IDVALORSOCIEDAD,dataRes) =>{
     return soFilter;
 }
 
+export async function getUserByIdService(userId, dbServer) {
+    const body = { USERID: userId };
+    
+    // 1. IMPORTANTE: Usamos 'getById' para evitar el error 500 "Proceso no reconocido"
+    const responseData = await callApi('getById', body, dbServer);
+
+    // 2. Verificación defensiva:
+    // Si el backend (por SAP) devuelve un objeto directo, lo usamos.
+    // Si por alguna razón devolviera un array, tomamos el primero.
+    
+    if (Array.isArray(responseData)) {
+        return responseData.length > 0 ? responseData[0] : null;
+    }
+    
+    // Si no es array, asumimos que es el objeto usuario directo
+    return responseData;
+};
 
