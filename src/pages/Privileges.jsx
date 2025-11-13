@@ -800,39 +800,92 @@ export default function PrivilegesLayout() {
       <SplitterLayout height="calc(100vh - 120px)">
         {/* Panel izquierdo: Views */}
         <div>
-          <Toolbar>
-            <FlexBox direction="Row" justifyContent="Center" wrap="Wrap" 
-            style={{ width: '100%', gap: '5.95rem' }}>
-                <Input
-                  icon="search"
-                  placeholder="Buscar vista..."
-                  onInput={(e) => handleSearch(e, views, setFilteredViews)}
-                  style={{ flex:"1 1 300px", maxWidth: "300px", minWidth: "50px" }}
-                />
+          {/* ============================================
+            🔍 BARRA DE BÚSQUEDA Y FILTROS (VISTAS) — RESPONSIVE
+          =============================================== */}
+          <FlexBox
+            direction="Column"
+            style={{
+              width: "100%",
+              gap: "1rem",
+              marginBottom: "1rem"
+            }}
+          >
+            {/* 🔍 Barra de búsqueda responsiva */}
+            <FlexBox
+              direction="Row"
+              justifyContent="Center"
+              wrap="Wrap"
+              style={{ width: "100%", gap: "5.75rem" }}
+            >
+              <Input
+                icon="search"
+                placeholder="Buscar vista..."
+                onInput={handleViewSearch}
+                style={{
+                  flex: "1 1 300px",
+                  maxWidth: "600px",
+                  minWidth: "30px",
+                }}
+              />
             </FlexBox>
 
-            <FlexBox direction="Row" alignItems="Center"
-            style={{ minWidth: '20px', flex: "1 1 220 px", gap: '0.95rem' }} >
-              <Label style={{ marginRight: '0.5rem' }}>Filtrar:</Label>
-              <Select
-                onChange={(e) => setViewFilterType(e.target.value)}
-                value={viewFilterType}
-                style={{ width: '150px', marginRight: '1rem' }}
+            {/* 🎛️ Controles de filtro y orden responsivos */}
+            <FlexBox
+              direction="Row"
+              wrap="Wrap"
+              justifyContent="SpaceBetween"
+              alignItems="Center"
+              style={{ width: "100%", gap: "0.75rem" }}
+            >
+              {/* Filtro */}
+              <FlexBox
+                direction="Row"
+                alignItems="Center"
+                style={{
+                  gap: "0.5rem",
+                  minWidth: "20px",
+                  flex: "1 1 220px",
+                }}
               >
-                <Option value="all">Todas las vistas</Option>
-                <Option value="assigned">Solo asignadas</Option>
-              </Select>
-              <Label style={{ marginRight: '0.5rem' }}>Ordenar:</Label>
-              <Select
-                onChange={(e) => setViewSortType(e.target.value)}
-                value={viewSortType}
-                style={{ width: '150px' }}
+                <Label>Filtrar por:</Label>
+                <Select
+                  value={viewFilterType}
+                  onChange={(e) =>
+                    setViewFilterType(e.detail.selectedOption.dataset.id)
+                  }
+                  style={{ width: "100%" }}
+                >
+                  <Option data-id="all">Todas las vistas</Option>
+                  <Option data-id="assigned">Solo vistas asignadas</Option>
+                </Select>
+              </FlexBox>
+
+              {/* Orden */}
+              <FlexBox
+                direction="Row"
+                alignItems="Center"
+                style={{
+                  gap: "0.5rem",
+                  minWidth: "20px",
+                  flex: "1 1 220px",
+                }}
               >
-                <Option value="name">Por nombre</Option>
-                <Option value="assigned-first">Asignadas primero</Option>
-              </Select>
-            </FlexBox>  
-          </Toolbar>
+                <Label>Ordenar por:</Label>
+                <Select
+                  value={viewSortType}
+                  onChange={(e) =>
+                    setViewSortType(e.detail.selectedOption.dataset.id)
+                  }
+                  style={{ width: "100%" }}
+                >
+                  <Option data-id="name">Por nombre</Option>
+                  <Option data-id="assigned-first">Asignadas primero</Option>
+                </Select>
+              </FlexBox>
+            </FlexBox>
+          </FlexBox>
+
           
 
           <Toolbar style={{ paddingTop: 0, background: 'none', boxShadow: 'none' }}>
@@ -895,33 +948,92 @@ export default function PrivilegesLayout() {
         {/* Panel derecho: Processes */}
         <SplitterLayout initialLeft="50%">
           <div>
-            <Toolbar>
-              <Input
-                icon="search"
-                placeholder="Buscar proceso..."
-                onInput={handleProcessSearch}
-                style={{ width: "50%" }}
-              />
-              <ToolbarSpacer />
-              <Label style={{ marginRight: '0.5rem' }}>Filtrar:</Label>
-              <Select
-                onChange={(e) => setProcessFilterType(e.target.value)}
-                value={processFilterType}
-                style={{ width: '150px', marginRight: '1rem' }}
+            {/* ================================
+                🔍 BUSQUEDA DE PROCESOS (RESPONSIVO)
+            =================================== */}
+            <FlexBox
+              direction="Column"
+              style={{
+                width: "100%",
+                gap: "1rem",
+                marginBottom: "1rem"
+              }}
+            >
+              {/* Barra de búsqueda */}
+              <FlexBox
+                direction="Row"
+                justifyContent="Center"
+                wrap="Wrap"
+                style={{ width: "100%", gap: "5.75rem" }}
               >
-                <Option value="all">Todos los procesos</Option>
-                <Option value="assigned">Solo asignados</Option>
-              </Select>
-              <Label style={{ marginRight: '0.5rem' }}>Ordenar:</Label>
-              <Select
-                onChange={(e) => setProcessSortType(e.target.value)}
-                value={processSortType}
-                style={{ width: '150px' }}
+                <Input
+                  icon="search"
+                  placeholder="Buscar proceso..."
+                  onInput={(e) => handleProcessSearch(e)}
+                  style={{
+                    flex: "1 1 300px",
+                    maxWidth: "600px",
+                    minWidth: "30px"
+                  }}
+                />
+              </FlexBox>
+
+              {/* Filtros y Orden RESPONSIVOS */}
+              <FlexBox
+                direction="Row"
+                wrap="Wrap"
+                justifyContent="SpaceBetween"
+                alignItems="Center"
+                style={{ width: "100%", gap: "0.75rem" }}
               >
-                <Option value="name">Por nombre</Option>
-                <Option value="assigned-first">Asignados primero</Option>
-              </Select>
-            </Toolbar>
+                {/* Filtro */}
+                <FlexBox
+                  direction="Row"
+                  alignItems="Center"
+                  style={{
+                    gap: "0.5rem",
+                    minWidth: "20px",
+                    flex: "1 1 220px"
+                  }}
+                >
+                  <Label>Filtrar por:</Label>
+                  <Select
+                    value={processFilterType}
+                    onChange={(e) =>
+                      setProcessFilterType(e.detail.selectedOption.dataset.id)
+                    }
+                    style={{ width: "100%" }}
+                  >
+                    <Option data-id="all">Todos los procesos</Option>
+                    <Option data-id="assigned">Sólo asignados</Option>
+                  </Select>
+                </FlexBox>
+
+                {/* Orden */}
+                <FlexBox
+                  direction="Row"
+                  alignItems="Center"
+                  style={{
+                    gap: "0.5rem",
+                    minWidth: "20px",
+                    flex: "1 1 220px"
+                  }}
+                >
+                  <Label>Ordenar por:</Label>
+                  <Select
+                    value={processSortType}
+                    onChange={(e) =>
+                      setProcessSortType(e.detail.selectedOption.dataset.id)
+                    }
+                    style={{ width: "100%" }}
+                  >
+                    <Option data-id="name">Por nombre</Option>
+                    <Option data-id="assigned-first">Asignados primero</Option>
+                  </Select>
+                </FlexBox>
+              </FlexBox>
+            </FlexBox>
+
 
             <Toolbar style={{ paddingTop: 0, background: 'none', boxShadow: 'none' }}>
               <FlexBox>

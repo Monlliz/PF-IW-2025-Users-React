@@ -1,8 +1,16 @@
 // Roles.jsx
+
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import AlertModal from '../components/modals/AlertModal';
 import ReusableModal from '../components/modals/ReusableModal';
 import styles from '../styles/Roles.module.css';
+import { 
+  fetchRolesData, 
+  addProcessToRole, 
+  addPrivilegeToProcess, 
+  deleteHardProcessFromRole, 
+  deletePrivilegeFromProcess 
+} from "../services/rolesServices";
 
 import {
   Page,
@@ -16,20 +24,23 @@ import {
   ToolbarButton,
   Text,
   Label,
-  Icon
-} from '@ui5/webcomponents-react';
+  Icon,
+  Select,
+  Option,
+  CheckBox
+} from "@ui5/webcomponents-react";
 
 import { DbContext } from "../contexts/dbContext";
 
 const rolesData = [
-  { ROLEID: "0001", ROL: "Docente" },
-  { ROLEID: "0002", ROL: "Administrador" },
-  { ROLEID: "0003", ROL: "Alumno" },
+  { ROLEID: "0001", ROLENAME: "Docente" },
+  { ROLEID: "0002", ROLENAME: "Administrador" },
+  { ROLEID: "0003", ROLENAME: "Alumno" },
 ];
 
 const roleColumns = [
   { Header: "ROLEID", accessor: "ROLEID" },
-  { Header: "ROL", accessor: "ROL" },
+  { Header: "ROLENAME", accessor: "ROLENAME" },
 ];
 
 const appColumns = [
@@ -39,24 +50,24 @@ const appColumns = [
 
 const applicationsByRol  = {
   "0001": [
-    { APPID: "101", Aplicacion: "App Docente A" },
-    { APPID: "102", Aplicacion: "App Docente B" }
+    { APPID: "101", NAMEAPP: "App Docente A" },
+    { APPID: "102", NAMEAPP: "App Docente B" }
   ],
   "0002": [
-    { APPID: "201", Aplicacion: "App Admin A" },
-    { APPID: "202", Aplicacion: "App Admin B" }
+    { APPID: "201", NAMEAPP: "App Admin A" },
+    { APPID: "202", NAMEAPP: "App Admin B" }
   ],
   "0003": [
-    { APPID: "301", Aplicacion: "App Alumno A" }
+    { APPID: "301", NAMEAPP: "App Alumno A" }
   ]
 };
 
 function SplitterLayout({
   children,
   initialLeft = '30%',
-  minLeft = '5%',
-  maxLeft = '85%',
-  hideThreshold = 5,
+  minLeft = '20%',
+  maxLeft = '75%',
+  hideThreshold = 10,
   height = '100%'
 }) {
   const containerRef = useRef(null);
@@ -178,7 +189,7 @@ function SplitterLayout({
           overflow: isRightCollapsed ? 'hidden' : 'auto',
           opacity: isRightCollapsed ? 0 : 1,
           pointerEvents: isRightCollapsed ? 'none' : 'auto',
-          transition: 'opacity 0.2s ease, width 0.2s ease',
+          transition: 'opacity 0.2s ease',
         }}
       >
         {right}
@@ -224,6 +235,19 @@ export default function Roles() {
   const [editingAplicacion, setEditingAplicacion] = useState(null);
   const [itemToDeleteAplicacion, setItemToDeleteAplicacion] = useState(null);
 
+  //Usa estados para controlar el tipo de filtro y orden:
+  const [viewFilterType, setViewFilterType] = useState('all'); // filtro activo, asignado, etc.
+  const [viewSortType, setViewSortType] = useState('name');   // orden por nombre, asignados primero, etc.
+
+  const [roleFilterType, setRoleFilterType] = useState('all'); // 'all' o 'assigned' o similar
+  const [roleSortType, setRoleSortType] = useState('name'); // 'name' o 'assigned-first'
+
+  const [appFilterType, setAppFilterType] = useState('all');
+  const [appSortType, setAppSortType] = useState('name');
+
+  //Define un estado en React que mantenga qué aplicaciones están asignadas.
+  const [checkedApps, setCheckedApps] = useState({});
+
   const [modalType, setModalType] = useState(null); 
   const [modalContext, setModalContext] = useState(null); 
   const [modalData, setModalData] = useState(null);
@@ -232,15 +256,6 @@ export default function Roles() {
     setModalType(null);
     setModalContext(null);
     setModalData(null);
-  };
-
-  const handleSearch = (event, data, setFiltered) => {
-    const q = event.target.value.toLowerCase();
-    if (!q) return setFiltered(data);
-    const f = data.filter(d =>
-      Object.values(d).some(v => String(v).toLowerCase().includes(q))
-    );
-    setFiltered(f);
   };
 
   const fetchAllData = async () => {
@@ -295,11 +310,89 @@ export default function Roles() {
     fetchAllData();
   }, []);
 
+  
+  const handleAppCheckBoxChange = async (appId, isChecked) => {
+    if (!selectedRol?.ROLEID) {
+    console.warn("⚠️ No hay rol seleccionado, no se puede asignar/desasignar aplicación");
+    return;
+  }
+
+  console.log(`🟢 Checkbox ${isChecked ? "marcado" : "desmarcado"} para AppID: ${appId}, Rol: ${selectedRol.ROLEID}`);
+
+  setCheckedApps((prev) => ({
+    ...prev,
+    [appId]: isChecked,
+  }));
+
+  try {
+    const body = {
+      ROLEID: selectedRol.ROLEID,
+      PROCESS: [{ PROCESSID: appId }]   // ✅ Cambiado PROCESSID → APPID
+    };
+
+    console.log("📦 Enviando body a API:", body);
+
+    if (isChecked) {
+      const response = await addProcessToRole(body, "addProcessRol", dbServer);
+      console.log("✅ addProcessToRole ejecutado:", response);
+    } else {
+      const response = await deleteHardProcessFromRole(body, "removeProcess", dbServer);
+      console.log("🗑️ deleteHardProcessFromRole ejecutado:", response);
+    }
+
+    const verifyRes = await fetch(
+      `http://localhost:3333/api/roles/crud?ProcessType=getByRole&ROLEID=${selectedRol.ROLEID}&DBServer=${dbServer}&LoggedUser=AGUIZARE`
+    );
+    const verifyData = await verifyRes.json();
+    console.log("📦 Datos actualizados desde BD:", verifyData);
+  } catch (error) {
+    console.error("❌ Error al actualizar la relación rol-aplicación:", error);
+  }
+
+    // 🔹 Actualiza también el estado local (UI)
+    setAppsByRol((prev) => {
+      const currentApps = prev[selectedRol.ROLEID] || [];
+
+      if (isChecked) {
+        const appToAdd = filteredApps.find((a) => a.APPID === appId);
+        const exists = currentApps.some((a) => a.APPID === appId);
+        return {
+          ...prev,
+          [selectedRol.ROLEID]: exists ? currentApps : [...currentApps, appToAdd],
+        };
+      } else {
+        return {
+          ...prev,
+          [selectedRol.ROLEID]: currentApps.filter((a) => a.APPID !== appId),
+        };
+      }
+    });
+  };
+
+
+  const handleSearch = (event, data, setFiltered) => {
+    const q = event.target.value.toLowerCase();
+    if (!q) return setFiltered(data);
+    const f = data.filter(d =>
+      Object.values(d).some(v => String(v).toLowerCase().includes(q))
+    );
+    setFiltered(f);
+  };
+
   const handleRolSelect = (e) => {
     const row = e.detail.row.original;
     const rolKey = row?.ROLEID;
     setSelectedRol({ ...row, ROLEID: rolKey });
     setFilteredApps(appsByRol[row?.ROLEID] || []);
+
+    // Actualiza los checkboxes al seleccionar un nuevo rol
+    const assignedApps = appsByRol[row?.ROLEID] || [];
+    const newChecked = {};
+    assignedApps.forEach((app) => {
+      newChecked[app.APPID] = true;
+    });
+    setCheckedApps(newChecked);
+
   };
 
   const handleAplicacionSelect = (e) => {
@@ -349,6 +442,52 @@ const handleEditAplicacionClick = (appToEdit) => {
   setShowEditAplicacionModal(true);
 };
 
+
+const applyRoleFiltersAndSort = () => {
+  let result = [...roles];
+  if (roleFilterType === 'assigned') {
+    // Aplicar filtro de asignados (definir condición real)
+    result = result.filter(r => true); // modificar según lógica real
+  }
+  if (roleSortType === 'assigned-first') {
+    // Ordenar 'asignados primero' (definir lógica)
+    result.sort((a,b) => 0); // modificar según lógica real
+  } else if (roleSortType === 'name') {
+    result.sort((a,b) => {
+      const nameA = a.ROLENAME || "";
+      const nameB = b.ROLENAME || "";
+      return nameA.localeCompare(nameB);
+    });
+  }
+  setFilteredRoles(result);
+};
+
+const applyAppFiltersAndSort = () => {
+  let result = [...(appsByRol[selectedRol?.ROLEID] || [])];
+
+  if (appFilterType === 'assigned') {
+    result = result.filter(app => /* condición real */ true);
+  }
+  if (appSortType === 'assigned-first') {
+    result.sort((a, b) => 0); // lógica real
+  } else if (appSortType === 'name') {
+    result.sort((a, b) => a.NAMEAPP.localeCompare(b.NAMEAPP));
+  }
+
+  // Evita actualizar si el resultado no cambia
+  setFilteredApps(prev =>
+    JSON.stringify(prev) !== JSON.stringify(result) ? result : prev
+  );
+};
+
+useEffect(() => {
+  applyRoleFiltersAndSort();
+}, [roles, roleFilterType, roleSortType]);
+
+useEffect(() => {
+  applyAppFiltersAndSort();
+}, [filteredApps, appFilterType, appSortType]);
+
   return (
     <Page className={styles.pageContainer}>
       <Bar>
@@ -362,17 +501,86 @@ const handleEditAplicacionClick = (appToEdit) => {
         hideThreshold={5}
         height="calc(100vh - 70px)"
       >
-        <div>
-          <Toolbar style={{ paddingBottom: 0, background: "none", boxShadow: "none" }}>
-            <Input
-              type="search"
-              placeholder="Buscar rol..."
-              className={styles.searchInput}
-              icon="search"
-              onInput={(e) => handleSearch(e, roles, setFilteredRoles)}
-              style={{ width: "80%" }}
-            />
-          </Toolbar>
+        <div style={{ background: "#f5f5f5", padding: "1em" }}>
+            <Title style={{ fontWeight: 700, fontSize: "1.8em" }}>Roles</Title>
+
+      <FlexBox
+        direction="Column"
+        style={{
+          width: "100%",
+          gap: "1rem",
+          marginBottom: "1rem"
+        }}
+      >
+        {/* 🔍 Barra de búsqueda responsiva */}
+        <FlexBox
+          direction="Row"
+          justifyContent="Center"
+          wrap="Wrap"
+          style={{ width: "100%", gap: "5.75rem" }}
+        >
+          <Input
+            icon="search"
+            placeholder="Buscar rol..."
+            onInput={(e) => handleSearch(e, roles, setFilteredRoles)}
+            style={{
+              flex: "1 1 300px", // se adapta con tamaño mínimo
+              maxWidth: "600px",
+              minWidth: "30px",
+            }}
+          />
+        </FlexBox>
+
+        {/* 🎛️ Controles de filtro y orden responsivos */}
+        <FlexBox
+          direction="Row"
+          wrap="Wrap"
+          justifyContent="SpaceBetween"
+          alignItems="Center"
+          style={{ width: "100%", gap: "0.75rem" }}
+        >
+          <FlexBox
+            direction="Row"
+            alignItems="Center"
+            style={{
+              gap: "0.5rem",
+              minWidth: "20px",
+              flex: "1 1 220px",
+            }}
+          >
+            <Label>Filtrar por:</Label>
+            <Select
+              value={roleFilterType}
+              onChange={(e) => setRoleFilterType(e.detail.selectedOption.dataset.id)}
+              style={{ width: "100%" }}
+            >
+              <Option data-id="all">Todos los roles</Option>
+              <Option data-id="assigned">Solo roles asignados</Option>
+            </Select>
+          </FlexBox>
+
+          <FlexBox
+            direction="Row"
+            alignItems="Center"
+            style={{
+              gap: "0.5rem",
+              minWidth: "20px",
+              flex: "1 1 220px",
+            }}
+          >
+            <Label>Ordenar por:</Label>
+            <Select
+              value={roleSortType}
+              onChange={(e) => setRoleSortType(e.detail.selectedOption.dataset.id)}
+              style={{ width: "100%" }}
+            >
+              <Option data-id="name">Por nombre</Option>
+              <Option data-id="assigned-first">Asignados primero</Option>
+            </Select>
+          </FlexBox>
+        </FlexBox>
+      </FlexBox>
+
 
           <Toolbar className={styles.barTable}>
             <FlexBox className={styles.buttonGroupContainer}>
@@ -419,13 +627,97 @@ const handleEditAplicacionClick = (appToEdit) => {
             onRowClick={handleRolSelect}
             visibleRows={10}
           />
+
         </div>
 
         <div style={{ background: "#f5f5f5", padding: "1em" }}>
           <Title style={{ fontWeight: 700, fontSize: "1.8em" }}>Aplicaciones</Title>
 
-          <Toolbar style={{ paddingTop: 0, background: "none", boxShadow: "none", justifyContent: "flex-end" }}>
-            <FlexBox>
+      <FlexBox
+        direction="Column"
+        style={{
+          width: "100%",
+          gap: "1rem",
+          marginBottom: "1rem",
+        }}
+      >
+        {/* 🔍 Barra de búsqueda responsiva */}
+        <FlexBox
+          direction="Row"
+          justifyContent="Center"
+          wrap="Wrap"
+          style={{ width: "100%", gap: "0.75rem" }}
+        >
+          <Input
+            icon="search"
+            placeholder="Buscar aplicación..."
+            onInput={(e) => handleSearch(e, appsByRol[selectedRol?.ROLEID] || [], setFilteredApps)}
+            style={{
+              flex: "1 1 300px", // tamaño mínimo adaptable
+              maxWidth: "600px",
+              minWidth: "220px",
+            }}
+          />
+        </FlexBox>
+
+        {/* 🎛️ Controles de filtro y orden responsivos */}
+        <FlexBox
+          direction="Row"
+          wrap="Wrap"
+          justifyContent="SpaceBetween"
+          alignItems="Center"
+          style={{ width: "100%", gap: "0.75rem" }}
+        >
+          {/* Filtro */}
+          <FlexBox
+            direction="Row"
+            alignItems="Center"
+            style={{
+              gap: "0.5rem",
+              minWidth: "220px",
+              flex: "1 1 220px",
+            }}
+          >
+            <Label>Filtrar por:</Label>
+            <Select
+              value={appFilterType}
+              onChange={(e) =>
+                setAppFilterType(e.detail.selectedOption.dataset.id)
+              }
+              style={{ width: "100%" }}
+            >
+              <Option data-id="all">Todas las aplicaciones</Option>
+              <Option data-id="assigned">Solo aplicaciones asignadas</Option>
+            </Select>
+          </FlexBox>
+
+          {/* Orden */}
+          <FlexBox
+            direction="Row"
+            alignItems="Center"
+            style={{
+              gap: "0.5rem",
+              minWidth: "220px",
+              flex: "1 1 220px",
+            }}
+          >
+            <Label>Ordenar por:</Label>
+            <Select
+              value={appSortType}
+              onChange={(e) =>
+                setAppSortType(e.detail.selectedOption.dataset.id)
+              }
+              style={{ width: "100%" }}
+            >
+              <Option data-id="name">Por nombre</Option>
+              <Option data-id="assigned-first">Asignadas primero</Option>
+            </Select>
+          </FlexBox>
+        </FlexBox>
+      </FlexBox>
+
+          <Toolbar  className={styles.barTable}>
+            <FlexBox className={styles.buttonGroupContainer}>
               <ToolbarButton
                 icon="add"
                 design={isHoveredAddAplicacion ? "Positive" : "Transparent"}
@@ -464,6 +756,18 @@ const handleEditAplicacionClick = (appToEdit) => {
           <AnalyticalTable
             data={filteredApps}
             columns={[
+              {
+                Header: "Asignado",
+                accessor: "asignado",
+                Cell: (row) => (
+                  <CheckBox
+                    // checked={checkedApps[row.row.original.APPID] || false}
+                    // onChange={(e) =>
+                    //   handleAppCheckBoxChange(row.row.original.APPID, e.target.checked)
+                    // }
+                  />
+                )
+              },  
               { Header: "APPID", accessor: "APPID" },
               { Header: "NAMEAPP", accessor: "NAMEAPP" },
             ]}
