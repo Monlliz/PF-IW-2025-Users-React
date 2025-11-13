@@ -173,11 +173,11 @@ export default function Users() {
         // 'rest' contiene todos los campos EXCEPTO ACTIVED y DELETED
         ...rest,
         //  Construimos el 'DETAIL_ROW' con los valores que sacamos
-        DETAIL_ROW: {
+       /*  DETAIL_ROW: {
           ACTIVED: ACTIVED || false,
           DELETED: DELETED || false,
           DETAIL_ROW_REG: []
-        }
+        } */
       };
 
       console.log('Objeto final enviado a la API:', newUserInput);

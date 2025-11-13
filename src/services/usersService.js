@@ -99,4 +99,57 @@ export const deleteUserService = async (userId, dbServer) => {
   return response;
 };
 
+export const getSociedades = async () =>{
+    try {
+        const url = 'https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=getJerarquia&LoggedUser=MIGUELLOPEZ&DBServer=MongoDB&IDETIQUETA=SOCIEDAD';
+
+        const config = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        };
+
+        const response = await fetch(url, config);
+
+        if (!response.ok) {
+            // Si el servidor responde con un error (4xx, 5xx), lanza una excepción
+            const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON de error
+            throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+        }
+
+        // Si la respuesta no tiene contenido (Ej. un DELETE o un POST que no devuelve nada)
+        if (response.status === 204) {
+            return null;
+        }
+
+        const data = await response.json();
+        const filterData = data.data[0]?.dataRes|| [];
+        
+        return filterData;
+        
+        
+
+    } catch (error) {
+        console.error(`Error en llamada API:`, error);
+        // Re-lanzamos el error para que el componente que llama (en el .jsx) pueda atraparlo
+        throw error;
+    }
+}
+export const getCedi = async (IDVALORSOCIEDAD,dataRes) =>{
+    
+    // Validar que dataRes existe y es un array
+    if (!dataRes || !Array.isArray(dataRes)) {
+        console.error('dataRes no es un array válido:', dataRes);
+        return [];
+    }
+    
+    const sociedad = dataRes.find(item => item.IDVALOR === IDVALORSOCIEDAD);
+    const soFilter = sociedad && sociedad.hijos ? sociedad.hijos : [];
+    console.log(soFilter);
+    
+    return soFilter;
+}
+
 
