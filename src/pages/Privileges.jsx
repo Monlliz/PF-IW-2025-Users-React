@@ -28,7 +28,7 @@ import { DbContext } from "../contexts/dbContext";
 =========================================================*/
 function SplitterLayout({
   children,
-  initialLeft = "40%",
+  initialLeft = "30%",
   minLeft = "10%",
   maxLeft = "85%",
   height = "100%"
@@ -42,7 +42,10 @@ function SplitterLayout({
     dragging.current = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    // FORZAR UN RENDER: Para que el estilo se actualice inmediatamente.
+    setLeftWidth(prev => prev);
   };
+  const [left, right] = React.Children.toArray(children);
 
   const handleMouseMove = (e) => {
     if (!dragging.current || !containerRef.current) return;
@@ -68,7 +71,6 @@ function SplitterLayout({
     };
   }, []);
 
-  const [left, right] = React.Children.toArray(children);
   return (
     <div
       ref={containerRef}
@@ -83,8 +85,10 @@ function SplitterLayout({
       <div
         style={{
           width: leftWidth,
-          overflow: "auto",
-          transition: "width 0.2s ease"
+          overflow: "hidden",
+          transition: "opacity 0.2s ease",
+          position: 'relative',
+          padding: '1em'
         }}
       >
         {left}
@@ -197,6 +201,12 @@ export default function PrivilegesLayout() {
   const [processFilterType, setProcessFilterType] = useState('all'); // 'all' o 'assigned'
   const [processSortType, setProcessSortType] = useState('name'); // 'name' o 'assigned-first'
 
+  // Privilege filtering and sorting states
+  const [privilegeFilterType, setPrivilegeFilterType] = useState('all'); // 'all' o 'assigned'
+  const [privilegeSortType, setPrivilegeSortType] = useState('name'); // 'name' o 'assigned-first'
+
+  const [privilegeSearchQuery, setPrivilegeSearchQuery] = useState('');
+  const [currentPrivileges, setCurrentPrivileges] = useState([]);
   // Modales
   const [modalType, setModalType] = useState(null); 
   const [modalContext, setModalContext] = useState(null); 
@@ -531,7 +541,45 @@ export default function PrivilegesLayout() {
   };
 
   // Buscar
+   // Aplicar filtrado y ordenamiento a los privilegios
+  const applyPrivilegeFiltersAndSort = (baseData = privilegesMap[selectedProcess?.PROCESSID] || []) => {
+    // Si no hay proceso seleccionado, no mostrar nada
+    if (!selectedProcess) {
+      setCurrentPrivileges([]);
+      return;
+    }
+    let result = [...(baseData || [])];
+    // Aplicar búsqueda de texto
+    if (privilegeSearchQuery) {
+      const q = privilegeSearchQuery.toLowerCase();
+      result = result.filter((d) =>
+        Object.values(d).some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+    // Ordenar según la selección
+    if (privilegeSortType === 'name') {
+      result.sort((a, b) => String(a.PRIVILEGEID).localeCompare(String(b.PRIVILEGEID)));
+    } 
+    // No hay 'assigned-first' por la misma razón que el filtro
+    setCurrentPrivileges(result);
+  };
+  // Efecto para aplicar filtros y ordenamiento de Privilegios
+  useEffect(() => {
+    // Recargar la lista base al cambiar los datos del proceso seleccionado o filtros
+    if (selectedProcess) {
+      const baseData = privilegesMap[selectedProcess.PROCESSID] || [];
+      applyPrivilegeFiltersAndSort(baseData);
+    } else {
+      setCurrentPrivileges([]);
+    }
+  }, [selectedProcess, privilegesMap, privilegeFilterType, privilegeSortType, privilegeSearchQuery]);
 
+  // Búsqueda específica para privilegios (respeta filtros y ordenamientos)
+  const handlePrivilegeSearch = (event) => {
+    // Al cambiar la búsqueda, actualizamos el estado. El useEffect se encargará del resto.
+    setPrivilegeSearchQuery(event.target.value);
+  };
+  
   // Cargar datos
   const loadAllData = async () => {
     setLoadingData(true);
@@ -800,6 +848,7 @@ export default function PrivilegesLayout() {
       <SplitterLayout height="calc(100vh - 120px)">
         {/* Panel izquierdo: Views */}
         <div>
+          <Title style={{ fontWeight: 500, fontSize: "1.5em" }}>Vistas</Title>
           {/* ============================================
             🔍 BARRA DE BÚSQUEDA Y FILTROS (VISTAS) — RESPONSIVE
           =============================================== */}
@@ -827,6 +876,7 @@ export default function PrivilegesLayout() {
                   maxWidth: "600px",
                   minWidth: "30px",
                 }}
+                disabled={!selectedApp}
               />
             </FlexBox>
 
@@ -845,12 +895,14 @@ export default function PrivilegesLayout() {
                 style={{
                   gap: "0.5rem",
                   minWidth: "20px",
-                  flex: "1 1 220px",
+                  flex: "1 1 220px",opacity: selectedApp ? 1 : 0.5,
+                  pointerEvents: selectedApp ? 'auto' : 'none'
                 }}
               >
                 <Label>Filtrar por:</Label>
                 <Select
                   value={viewFilterType}
+                  disabled={!selectedApp}
                   onChange={(e) =>
                     setViewFilterType(e.detail.selectedOption.dataset.id)
                   }
@@ -869,11 +921,14 @@ export default function PrivilegesLayout() {
                   gap: "0.5rem",
                   minWidth: "20px",
                   flex: "1 1 220px",
+                  opacity: selectedApp ? 1 : 0.5,
+                  pointerEvents: selectedApp ? 'auto' : 'none'
                 }}
               >
                 <Label>Ordenar por:</Label>
                 <Select
                   value={viewSortType}
+                  disabled={!selectedApp}
                   onChange={(e) =>
                     setViewSortType(e.detail.selectedOption.dataset.id)
                   }
@@ -948,6 +1003,7 @@ export default function PrivilegesLayout() {
         {/* Panel derecho: Processes */}
         <SplitterLayout initialLeft="50%">
           <div>
+            <Title style={{ fontWeight: 500, fontSize: "1.5em" }}>Procesos</Title>
             {/* ================================
                 🔍 BUSQUEDA DE PROCESOS (RESPONSIVO)
             =================================== */}
@@ -970,6 +1026,7 @@ export default function PrivilegesLayout() {
                   icon="search"
                   placeholder="Buscar proceso..."
                   onInput={(e) => handleProcessSearch(e)}
+                  disabled={!selectedView}
                   style={{
                     flex: "1 1 300px",
                     maxWidth: "600px",
@@ -993,12 +1050,15 @@ export default function PrivilegesLayout() {
                   style={{
                     gap: "0.5rem",
                     minWidth: "20px",
-                    flex: "1 1 220px"
+                    flex: "1 1 220px",
+                    opacity: selectedView ? 1 : 0.5,
+                    pointerEvents: selectedView ? 'auto' : 'none'
                   }}
                 >
                   <Label>Filtrar por:</Label>
                   <Select
                     value={processFilterType}
+                    disabled={!selectedView}
                     onChange={(e) =>
                       setProcessFilterType(e.detail.selectedOption.dataset.id)
                     }
@@ -1016,12 +1076,15 @@ export default function PrivilegesLayout() {
                   style={{
                     gap: "0.5rem",
                     minWidth: "20px",
-                    flex: "1 1 220px"
+                    flex: "1 1 220px",
+                    opacity: selectedView ? 1 : 0.5,
+                    pointerEvents: selectedView ? 'auto' : 'none'
                   }}
                 >
                   <Label>Ordenar por:</Label>
                   <Select
                     value={processSortType}
+                    disabled={!selectedView}
                     onChange={(e) =>
                       setProcessSortType(e.detail.selectedOption.dataset.id)
                     }
@@ -1095,21 +1158,92 @@ export default function PrivilegesLayout() {
 
           {/* Panel derecho: Privilegios */}
           <div>
-            <Toolbar>
-              <Input
-                icon="search"
-                placeholder="Buscar privilegio..."
-                onInput={(e) =>
-                  handleSearch(
-                    e,
-                    privilegesMap[selectedProcess?.PROCESSID] || [],
-                    setFilteredPrivileges
-                  )
-                }
-                style={{ width: "80%" }}
-              />
-              <ToolbarSpacer />
-            </Toolbar>
+            <Title style={{ fontWeight: 500, fontSize: "1.5em" , paddingTop:"0.7rem"}}>Privilegios</Title>
+            <FlexBox
+              direction="Column"
+              style={{
+                width: "100%",
+                gap: "1rem",
+                marginBottom: "1rem",
+                // marginTop: "1rem"
+              }}
+            >
+              {/* 🔍 Barra de búsqueda responsiva */}
+              <FlexBox
+                direction="Row"
+                justifyContent="Center"
+                wrap="Wrap"
+                style={{ width: "100%", gap: "5.75rem" }}
+              >
+                <Input
+                  icon="search"
+                  placeholder="Buscar privilegio..."
+                  onInput={handlePrivilegeSearch}
+                  value={privilegeSearchQuery}
+                  style={{
+                    flex: "1 1 300px",
+                    maxWidth: "600px",
+                    minWidth: "30px",
+                  }}
+                  disabled={!selectedProcess}
+                />
+              </FlexBox>
+              {/* 🎛️ Controles de filtro y orden responsivos */}
+              <FlexBox
+                direction="Row"
+                wrap="Wrap"
+                justifyContent="SpaceBetween"
+                alignItems="Center"
+                style={{ width: "100%", gap: "0.75rem" }}
+              >
+                {/* Filtro (Se mantiene por uniformidad, aunque el filtro 'assigned' no aplique) */}
+                <FlexBox
+                  direction="Row"
+                  alignItems="Center"
+                  style={{
+                    gap: "0.5rem",
+                    minWidth: "20px",
+                    flex: "1 1 220px",
+                  }}
+                >
+                  <Label>Filtrar por:</Label>
+                  <Select
+                    value={privilegeFilterType}
+                    onChange={(e) =>
+                      setPrivilegeFilterType(e.detail.selectedOption.dataset.id)
+                    }
+                    style={{ width: "100%" }}
+                    disabled={!selectedProcess}
+                  >
+                    <Option data-id="all">Todos los privilegios</Option>
+                    <Option data-id="assigned" disabled>Asignados (No Aplica)</Option>
+                  </Select>
+                </FlexBox>
+                {/* Orden */}
+                <FlexBox
+                  direction="Row"
+                  alignItems="Center"
+                  style={{
+                    gap: "0.5rem",
+                    minWidth: "20px",
+                    flex: "1 1 220px",
+                  }}
+                >
+                  <Label>Ordenar por:</Label>
+                  <Select
+                    value={privilegeSortType}
+                    onChange={(e) =>
+                      setPrivilegeSortType(e.detail.selectedOption.dataset.id)
+                    }
+                    style={{ width: "100%" }}
+                    disabled={!selectedProcess}
+                  >
+                    <Option data-id="name">Por nombre</Option>
+                    <Option data-id="assigned-first" disabled>Asignados primero (No Aplica)</Option>
+                  </Select>
+                </FlexBox>
+              </FlexBox>
+            </FlexBox>
 
             <Toolbar style={{ paddingTop: 0, background: 'none', boxShadow: 'none' }}>
               <FlexBox>
