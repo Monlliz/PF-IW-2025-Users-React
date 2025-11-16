@@ -18,7 +18,9 @@ import {
   FlexBox,
   MessageBox,
   Text,
-  Icon
+  Icon,
+  Select,
+  Option
 } from '@ui5/webcomponents-react';
 
 
@@ -66,35 +68,35 @@ export default function Users() {
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
 
-  /**
-   * Carga la lista inicial de usuarios desde el backend.
-   */
-  const loadUsers = async (dbServer) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const usersFromDB = await getUsersAllService(dbServer);
-      setAllUsers(usersFromDB);
-      setFilteredUsers(usersFromDB);
-    } catch (err) {
-      console.error("Error al cargar usuarios:", err);
-      setError(`Error al cargar la lista: ${err.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+  // BRIT: Campo seleccionado en el combobox (Select) que determina
+  //       en qué columna/propiedad se hará la búsqueda.
+  const [searchField, setSearchField] = useState(userColumns[0].accessor);
+
+  // BRIT: Utilidad para leer valores anidados usando accessors tipo "DETALLE.SUBCAMPO".
+  //       Necesario para columnas como "DETAIL_ROW.ACTIVED".
+  const getNestedValue = (obj, accessor) => {
+    if (!obj || !accessor) return undefined;
+    return accessor.split('.').reduce((acc, key) => (acc ? acc[key] : undefined), obj);
   };
 
-  // Filtro de la barra
+  // BRIT: Filtro principal que se llama desde el Input.
+  //       - Usa searchField para saber en qué propiedad buscar.
+  //       - Normaliza a minúsculas y usa includes => encuentra en inicio/medio/final.
+  //       - Convierte booleanos a texto ('activo'/'inactivo') para que se puedan buscar.
   const handleSearch = (event) => {
-    const query = event.target.value.toLowerCase();
+    const query = (event.target.value || '').toLowerCase();
     if (query === '') {
       setFilteredUsers(allUsers);
       return;
     }
     const filtered = allUsers.filter((user) => {
-      return Object.values(user).some((value) =>
-        String(value).toLowerCase().includes(query)
-      );
+      let fieldValue = getNestedValue(user, searchField);
+
+      if (typeof fieldValue === 'boolean') {
+        fieldValue = fieldValue ? 'activo' : 'inactivo';
+      }
+
+      return String(fieldValue || '').toLowerCase().includes(query);
     });
     setFilteredUsers(filtered);
   };
@@ -250,9 +252,36 @@ export default function Users() {
   };
 
   // Use effect para cargar los datos al iniciar la pagina
+  // BRIT: loadUsers centraliza la llamada al servicio y normaliza la respuesta.
+  //       Si se producía ReferenceError era porque faltaba esta función (ahora existe).
+  const loadUsers = async (dbServerParam) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const usersResponse = await getUsersAllService(dbServerParam);
+
+      // BRIT: A veces la API devuelve directamente un array o lo envuelve en .data;
+      //       aquí normalizamos a usersArray.
+      const usersArray = Array.isArray(usersResponse)
+        ? usersResponse
+        : (usersResponse && usersResponse.data) ? usersResponse.data : [];
+
+      setAllUsers(usersArray);
+      setFilteredUsers(usersArray);
+    } catch (err) {
+      console.error("Error cargando usuarios:", err);
+      setError(`Error al cargar usuarios: ${err.message || err}`);
+      setAllUsers([]);
+      setFilteredUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    // BRIT: useEffect invoca loadUsers cuando cambia el origen de datos (dbServer).
     loadUsers(dbServer);
-  }, []);
+  }, [dbServer]);
 
   // -----------------------------------------------------------------------------
   return (
@@ -272,6 +301,23 @@ export default function Users() {
         header={
           <Toolbar className={styles.barTable}>
             <FlexBox className={styles.buttonGroupContainer}>
+              {/* BRIT: Select (combobox) que muestra los encabezados de la tabla.
+                       El value es el accessor (clave) que usa handleSearch para filtrar. */}
+              <Select
+                value={searchField}
+                onChange={(e) => {
+                  setSearchField(e.target.value);
+                }}
+                style={{ minWidth: 180, marginRight: 8 }}
+              >
+                {userColumns.map(col => (
+                  <Option key={col.accessor} value={col.accessor}>
+                    {col.Header}
+                  </Option>
+                ))}
+              </Select>
+
+              {/* BRIT: Input que dispara handleSearch en cada input; la búsqueda es inclusiva (includes). */}
               <Input
                 type="search"
                 placeholder="Buscar..."
