@@ -11,7 +11,9 @@ import {
     Option,
     Dialog,
     Text,
-    MessageBox
+    MessageBox,
+    ComboBox,
+    ComboBoxItem
 } from '@ui5/webcomponents-react';
 
 // --- Helpers para manejar objetos anidados ---
@@ -100,6 +102,7 @@ const ReusableModal = ({
             // Llamada a API
             getSociedades().then((res) => {
                 setSociedades(res || []);
+                console.log(sociedades);
             });
         }
     }, [open, fields]);
@@ -107,6 +110,7 @@ const ReusableModal = ({
     // Cuando cambia la compañía, filtramos los CEDIs
     const handleCompanyChange = (selectedCompanyId) => {
         const sociedad = sociedades.find(s => s.IDVALOR === selectedCompanyId);
+
         const hijos = sociedad?.hijos || [];
         setCedisDisponibles(hijos);
 
@@ -224,26 +228,38 @@ const ReusableModal = ({
     const renderField = (field) => {
         const value = getNestedValue(formData, field.name);
         const hasError = errors[field.name]; // 'hasError' aquí es el string del mensaje
-       /*  // 🧠 Modificamos solo los combobox
+        // Modificamos solo los combobox
         if (field.name === "COMPANYID") {
             return (
                 <div key={field.name} className={hasError ? styles.fieldWrapperErrorModal : styles.fieldWrapperModal}>
                     <Label required={field.required}>{field.label}</Label>
-                    <Select
+                    <ComboBox
+                        placeholder="Selecciona o escribe una sociedad..."
+                        style={{ width: '100%' }}
+
+                        // El 'value' es el TEXTO (VALOR) que corresponde al ID guardado
                         value={sociedades.find(s => s.IDVALOR === value)?.VALOR || ""}
+
+                        // 'onChange' se dispara al presionar Enter o perder el foco
                         onChange={(e) => {
-                            const selectedText = e.detail.selectedOption?.textContent;
+                            // Leemos el TEXTO que está en el input
+                            const selectedText = e.target.value;
+
+                            // Buscamos la sociedad que coincida con ese texto
                             const selectedSoc = sociedades.find(s => s.VALOR === selectedText);
+
+                            // Guardamos su IDVALOR (o un string vacío si no hay coincidencia)
                             handleCompanyChange(selectedSoc?.IDVALOR || "");
                         }}
                     >
-                        <Option key="placeholder" selected disabled hidden>
-                            Selecciona una sociedad...
-                        </Option>
+                        {/* Ya no hay <Option>, ahora es <ComboBoxItem> */}
                         {sociedades.map(s => (
-                            <Option key={s.IDVALOR}>{s.VALOR}</Option>
+                            <ComboBoxItem
+                                key={s.IDVALOR}
+                                text={s.VALOR} // La prop se llama 'text'
+                            />
                         ))}
-                    </Select>
+                    </ComboBox>
                     {hasError && <Text className={styles.ErrorTextModal}>{hasError}</Text>}
                 </div>
             );
@@ -253,26 +269,39 @@ const ReusableModal = ({
             return (
                 <div key={field.name} className={hasError ? styles.fieldWrapperErrorModal : styles.fieldWrapperModal}>
                     <Label required={field.required}>{field.label}</Label>
-                    <Select
+                    <ComboBox
+                        placeholder={cedisDisponibles.length === 0 ? "Selecciona una sociedad primero" : "Selecciona o escribe un CEDI..."}
+                        style={{ width: '100%' }}
+
+                        // El 'value' sigue siendo el TEXTO (VALOR) que coincide con el ID guardado
                         value={cedisDisponibles.find(c => c.IDVALOR === value)?.VALOR || ""}
+
+                        // 'onChange' se dispara al perder el foco o presionar Enter
                         onChange={(e) => {
-                            const selectedText = e.detail.selectedOption?.textContent;
+                            // Leemos el TEXTO directamente del input
+                            const selectedText = e.target.value;
+
+                            // Buscamos el CEDI que coincida con el texto
                             const selectedCedi = cedisDisponibles.find(c => c.VALOR === selectedText);
+
+                            // Guardamos el IDVALOR (o un string vacío si no hay coincidencia)
                             handleInputChange("CEDIID", selectedCedi?.IDVALOR || "");
                         }}
+
                         disabled={cedisDisponibles.length === 0}
                     >
-                        <Option key="placeholder" selected disabled hidden>
-                            Selecciona un CEDI...
-                        </Option>
+                        {/* Cambiamos <Option> por <ComboBoxItem> */}
                         {cedisDisponibles.map(c => (
-                            <Option key={c.IDVALOR}>{c.VALOR}</Option>
+                            <ComboBoxItem
+                                key={c.IDVALOR}
+                                text={c.VALOR} // La prop se llama 'text'
+                            />
                         ))}
-                    </Select>
+                    </ComboBox>
                     {hasError && <Text className={styles.ErrorTextModal}>{hasError}</Text>}
                 </div>
             );
-        } */
+        }
 
         switch (field.type) {
             case 'text':
