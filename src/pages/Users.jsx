@@ -1,8 +1,9 @@
 import styles from '../styles/Users.module.css';
 import ReusableModal from '../components/modals/ReusableModal';
 import { userEditFields, userCreationFields } from '../components/config/Users-fieldConfigs';
-import AlertModal from '../components/modals/AlertModal';
+// import AlertModal from '../components/modals/AlertModal'; // <-- No lo necesitamos porque iremos a otra página
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom'; // <--- IMPORTANTE: Para poder navegar
 import { getUsersAllService, createUserService, updateUserService, deleteUserService } from '../services/usersService.js';
 import { DbContext } from "../contexts/dbContext";
 import {
@@ -17,7 +18,6 @@ import {
   FlexBox,
   MessageBox,
   Text,
-  Label,
   Icon
 } from '@ui5/webcomponents-react';
 
@@ -27,14 +27,7 @@ const userColumns = [
   { Header: "User ID", accessor: "USERID" },
   { Header: "Nombre de Usuario", accessor: "USERNAME" },
   { Header: "Alias", accessor: "ALIAS" },
-  // { Header: "Compañía ID", accessor: "COMPANYID" },
-  // { Header: "CEDI ID", accessor: "CEDIID" },
-  // { Header: "Empleado ID", accessor: "EMPLOYEEID" },
   { Header: "Correo Electrónico", accessor: "EMAIL" },
-  // {
-  //   Header: "Eliminado", accessor: "DELETED",
-  //   Cell: ({ value }) => (value ? "Sí" : "No")
-  // },
   { Header: "Teléfono", accessor: "PHONENUMBER" },
   { Header: "Extensión", accessor: "EXTENSION" },
   {
@@ -55,225 +48,138 @@ const userColumns = [
 
 
 export default function Users() {
-  //base de datos
+  // Base de datos
   const { dbServer } = useContext(DbContext);
-  //cargar datos de usuarios desde el servicio
-  const [isLoading, setIsLoading] = useState(true); // Inicia en true para la carga inicial
+  const navigate = useNavigate(); // <--- Inicializamos la navegación
+
+  // Cargar datos de usuarios desde el servicio
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  //Controlar el "hover" de los botones del crud------------------------------------
+
+  // Controlar el "hover" de los botones
   const [isHoveredDelete, setisHoveredDelete] = useState(false);
   const [isHoveredAdd, setisHoveredAdd] = useState(false);
   const [isHoveredInfo, setisHoveredInfo] = useState(false);
   const [isHoveredEdit, setisHoveredEdit] = useState(false);
-  //------------------------------------------------------------------------------
-  //Funcionamiento de la barra de busqueda------------------------------------
-  // Estado para guardar la lista original de usuarios (inmutable)
-  const [allUsers, setAllUsers] = useState([]);
 
-  // Estado para guardar la lista que se mostrará en la tabla (puede cambiar)
+  // Funcionamiento de la barra de busqueda
+  const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  // Cargar los datos de usuarios al montar el componente
+
   /**
-    * Carga la lista inicial de usuarios desde el backend.
-    * @param {string} dbServer - El servidor de base de datos (ej. 'MongoDB')
-    */
+   * Carga la lista inicial de usuarios desde el backend.
+   */
   const loadUsers = async (dbServer) => {
-    // Pone la UI en estado de "cargando"
     setIsLoading(true);
     setError(null);
-
     try {
-      // Llama a tu servicio 'get'
       const usersFromDB = await getUsersAllService(dbServer);
-      // Guarda la lista de usuarios en tus estados
       setAllUsers(usersFromDB);
       setFilteredUsers(usersFromDB);
-
     } catch (err) {
-      // Si algo falla, guarda el error para mostrarlo
       console.error("Error al cargar usuarios:", err);
       setError(`Error al cargar la lista: ${err.message}`);
     } finally {
-      // Se ejecuta siempre (al éxito o al fallo) para quitar el "cargando"
       setIsLoading(false);
     }
   };
 
-  //****************Filtro de la barra************/
+  // Filtro de la barra
   const handleSearch = (event) => {
-    // Obtiene el texto de búsqueda del input y lo convierte a minúsculas.
     const query = event.target.value.toLowerCase();
-
-    // Si el input está vacío, muestra todos los datos originales.
     if (query === '') {
-      setFilteredUsers(allUsers); // 'allUsers' es tu lista original sin filtros
+      setFilteredUsers(allUsers);
       return;
     }
-
-    //  Filtra la lista original
     const filtered = allUsers.filter((user) => {
-      // Object.values(user) convierte el objeto {name: 'Ana', role: 'Admin'} en ['Ana', 'Admin']
-      // .some() devuelve true si al menos UNA de las columnas cumple la condición.
       return Object.values(user).some((value) =>
-        // Convierte el valor de la columna a string y minúsculas, y comprueba si incluye el texto de búsqueda.
         String(value).toLowerCase().includes(query)
       );
     });
-
-    // Actualiza el estado con los resultados encontrados.
     setFilteredUsers(filtered);
   };
 
-  //------------------------------------------------------------------------------
-  //MODALES DE LOS BOTONES, FUNCIONAMIENTO
-
+  // MODALES DE LOS BOTONES, FUNCIONAMIENTO
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
 
-  //***************Logica de fila*****************
-  //fila seleccionada
+  // Logica de fila seleccionada
   const [selectedRow, setSelectedRow] = useState(null);
 
   const handleRowSelect = (event) => {
-    // 1. Obtenemos el ARRAY de todas las filas seleccionadas
     const selectedRows = event.detail.row;
-    // 2. Comprobamos si esta fila está AHORA seleccionada
     if (selectedRows.isSelected) {
-      // Si es 'true', la guardamos en el estado
       setSelectedRow(selectedRows.original);
     } else {
-      // Si es 'false', significa que el usuario acaba de deseleccionarla.
-      // Limpiamos el estado.
       setSelectedRow(null);
     }
-
   };
 
-  // Estados para controlar la visibilidad de los modales de crear y editar
+  // Estados para crear y editar
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  //************Crear******************************** */
-  const handleCreateUser = async (userData) => {
 
-    // Activa el estado de "cargando" y limpia errores
+  // ************ Crear ************
+  const handleCreateUser = async (userData) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Preparamos el objeto completo
-      // 1Desestructuramos 'userData'
-      // - Sacamos 'ACTIVED' y 'DELETED' para usarlos en DETAIL_ROW.
-      // - El resto de los campos (USERID, USERNAME, EMAIL, etc.) 
-      //   se guardan en la variable 'rest'.
       const { ACTIVED, DELETED, ...rest } = userData;
-
-      //  Preparamos el objeto 'UsuarioInput' SIN los campos sobrantes
+      // Aquí puedes reconstruir DETAIL_ROW si tu backend lo requiere específicamente
+      // o enviar 'rest' si tu backend lo arma solo.
       const newUserInput = {
-        // 'rest' contiene todos los campos EXCEPTO ACTIVED y DELETED
         ...rest,
-        //  Construimos el 'DETAIL_ROW' con los valores que sacamos
-       /*  DETAIL_ROW: {
-          ACTIVED: ACTIVED || false,
-          DELETED: DELETED || false,
-          DETAIL_ROW_REG: []
-        } */
+        // DETAIL_ROW: { ACTIVED: !!ACTIVED, DELETED: !!DELETED, DETAIL_ROW_REG: [] } // Descomenta si es necesario
       };
 
       console.log('Objeto final enviado a la API:', newUserInput);
 
-      // 3. Llama al servicio de la API (asumo 'MongoDB' como en loadUsers)
       const updatedUserList = await createUserService(newUserInput, dbServer);
 
       if (!updatedUserList || typeof updatedUserList !== 'object') {
-        // Si 'dataRes' no vino o no es un objeto, lanza un error
         throw new Error("La API no devolvió el objeto de usuario creado.");
       }
 
-      // 5. Añade el nuevo usuario al INICIO de ambas listas
-      //    (Esta es tu lógica de simulación, ¡pero con datos reales!)
       setAllUsers(prevUsers => [...prevUsers, updatedUserList]);
       setFilteredUsers(prevUsers => [...prevUsers, updatedUserList]);
-      // 5. Cierra el modal SÓLO si todo salió bien
       setShowCreateModal(false);
 
     } catch (err) {
-      // 6. Si la API falla, muestra el error
       console.error("Error al crear usuario:", err);
       setError(`Error al crear: ${err.message}`);
-      // (No cerramos el modal, para que el usuario pueda reintentar)
     } finally {
-      // 7. Se ejecuta siempre (éxito o error) para detener el "cargando"
       setIsLoading(false);
     }
   };
-  //************Edit******************************** */
 
-  // FUNCIÓN 2: Para el botón "Guardar" de DENTRO del modal
+  // ************ Edit ************
   const handleEditUser = async (updatedFormData) => {
-    console.log('Guardando cambios:', updatedFormData);
-
     setIsLoading(true);
     setError(null);
-
     try {
-      // Lee el usuario ORIGINAL del estado (el que se abrió al editar)
-      //  'editingUser' tiene el USERID y los datos que no están en el form.
-
-      // Prepara el objeto final para la API
-      // Combina el usuario original con los nuevos datos del form
       const mergedUserData = { ...editingUser, ...updatedFormData };
+      let payload;
 
-      let payload; // 1. Declara la variable 'payload' AFUERA del 'if'
-
-      // 2. Limpia el objeto según la base de datos
       if (dbServer === 'MongoDB') {
-        const {
-          // Campos del formulario que no van en el nivel superior
-          ACTIVED, DELETED,
-          // Campos específicos de Mongo
-          _id, REGUSER, REGDATE, REGTIME, MODUSER, MODDATE, MODTIME, __v,
-          ...rest
-        } = mergedUserData;
-
-        payload = rest; // 3. Asigna el objeto limpio a 'payload'
-
+        const { ACTIVED, DELETED, _id, REGUSER, REGDATE, REGTIME, MODUSER, MODDATE, MODTIME, __v, ...rest } = mergedUserData;
+        payload = rest;
       } else if (dbServer === 'AZURECOSMOS') {
-        const {
-          // Campos del formulario que no van en el nivel superior
-          ACTIVED, DELETED,
-          // Campos específicos de Cosmos
-          id, _ts, _attachments, _etag, _self, _rid,
-          ...rest
-        } = mergedUserData;
-
-        payload = rest; // 3. Asigna el objeto limpio a 'payload'
-
+        const { ACTIVED, DELETED, id, _ts, _attachments, _etag, _self, _rid, ...rest } = mergedUserData;
+        payload = rest;
       } else {
-        // Es buena idea tener un caso por defecto
-        console.error("Base de datos no soportada:", dbServer);
-        // Si no se reconoce, al menos quita los campos del form
         const { ACTIVED, DELETED, ...rest } = mergedUserData;
         payload = rest;
       }
 
-      // 4. Ahora SÍ puedes USAR 'payload'
-      //    Contiene el objeto limpio (sin campos de BD ni ACTIVED/DELETED)
-      const finalUserData = {
-        ...payload
-      };
-
-      console.log('Objeto final enviado a la API (Update):', finalUserData);
-
-      // Llama al servicio de la API
+      const finalUserData = { ...payload };
       const updatedUserFromDB = await updateUserService(finalUserData, dbServer);
 
       if (!updatedUserFromDB || typeof updatedUserFromDB !== 'object') {
         throw new Error("La API no devolvió el objeto de usuario actualizado.");
       }
-      console.log("Respuesta API",updatedUserFromDB);
-      
-      // Actualiza ambas listas 
+
       setAllUsers(prevUsers =>
         prevUsers.map(user =>
           user.USERID === updatedUserFromDB.USERID ? updatedUserFromDB : user
@@ -285,7 +191,6 @@ export default function Users() {
         )
       );
 
-      // 6. Cierra el modal y limpia todo
       setShowEditModal(false);
       setEditingUser(null);
       setSelectedRow(null);
@@ -298,69 +203,35 @@ export default function Users() {
     }
   };
 
-  // FUNCIÓN 1: Para el botón "Editar" de la barra de herramientas
   const handleEditClick = (userToEdit) => {
-    // 'userToEdit' es el 'selectedRow' que le pasas
-
-    if (!userToEdit) {
-      console.error("handleEditClick fue llamado sin un usuario. Esto no debería pasar.");
-      return;
-    }
-
-    console.log("Abriendo modal para editar:", userToEdit);
-
-    // 1. Guarda el usuario original en el estado
+    if (!userToEdit) return;
     setEditingUser(userToEdit);
-
-    // 2. Abre el modal
     setShowEditModal(true);
-
-    // ¡Eso es todo! Esta función no hace nada más.
   };
-  //**************Info******************************** */
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedUserData, setSelectedUserData] = useState(null);
 
+  // ************ Info (Detalles) ************
+  // CAMBIO PRINCIPAL: Usamos navegación en lugar de Modal
   const handleShowDetails = (userData) => {
-    setSelectedUserData(userData);
-    setIsDetailModalOpen(true);
+    if (userData && userData.USERID) {
+      // Pasamos el objeto 'user' en el state para que la carga sea instantánea
+      navigate(`/users/detail/${userData.USERID}`, { state: { user: userData } });
+    }
   };
 
-  const handleCloseDetails = () => {
-    setIsDetailModalOpen(false);
-    setSelectedUserData(null);
-  };
-  //************Delete******************************** */
+  // ************ Delete ************
   const handleModalClose = async (event) => {
-    // Cierra el modal en cualquier caso
     setShowConfirmModal(false);
-
-    // Comprueba si el botón presionado fue "Sí"
     if (event === "Sí") {
-      // Si fue "Sí", inicia el proceso de borrado
       setIsLoading(true);
       setError(null);
-
       try {
-        if (!itemToDelete) {
-          throw new Error("No se ha seleccionado ningún usuario.");
-        }
-
-        // Obtenemos el ID del item guardado
+        if (!itemToDelete) throw new Error("No se ha seleccionado ningún usuario.");
         const userIdToDelete = itemToDelete.USERID;
-
-        // Llama al servicio de la API con SÓLO EL ID
+        
         await deleteUserService(userIdToDelete, dbServer);
 
-        // Si la API tuvo éxito, actualiza el estado LOCALMENTE
-        setAllUsers(prevUsers =>
-          prevUsers.filter(user => user.USERID !== userIdToDelete)
-        );
-        setFilteredUsers(prevUsers =>
-          prevUsers.filter(user => user.USERID !== userIdToDelete)
-        );
-
-        // 6. Limpia la selección
+        setAllUsers(prevUsers => prevUsers.filter(user => user.USERID !== userIdToDelete));
+        setFilteredUsers(prevUsers => prevUsers.filter(user => user.USERID !== userIdToDelete));
         setSelectedRow(null);
 
       } catch (err) {
@@ -370,27 +241,20 @@ export default function Users() {
         setIsLoading(false);
       }
     }
-
-    // 7. Limpia el item guardado (se ejecuta si fue "Sí" o "No")
     setItemToDelete(null);
   };
-  // Función para *abrir* el modal de confirmación
+
   const handleOpenConfirmModal = (item) => {
-    setItemToDelete(item);    // Guarda el item que queremos borrar
-    setShowConfirmModal(true); // Abre el modal
+    setItemToDelete(item);
+    setShowConfirmModal(true);
   };
 
-
-  //use effect para cargar los datos al iniciar la pagina
-  // Este Hook se ejecuta automáticamente cuando el componente se "monta" (carga)
+  // Use effect para cargar los datos al iniciar la pagina
   useEffect(() => {
-
-    // Llama a la función para cargar los datos
     loadUsers(dbServer);
+  }, []);
 
-  }, []); // El array vacío [] es MUY importante. 
-  // Le dice a React que ejecute esto solo UNA VEZ.
-  //-----------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------
   return (
     <Page className={styles.pageContainer}>
       <Bar><Title className={styles.titlePageName}>Usuarios</Title></Bar>
@@ -407,8 +271,6 @@ export default function Users() {
         noDataText="No se encontraron registros"
         header={
           <Toolbar className={styles.barTable}>
-
-            {/* Contenedor para los botones y el input*/}
             <FlexBox className={styles.buttonGroupContainer}>
               <Input
                 type="search"
@@ -424,13 +286,14 @@ export default function Users() {
                 onMouseLeave={() => setisHoveredAdd(false)}
                 onClick={() => setShowCreateModal(true)}
               />
+              {/* Botón de Detalles -> Ahora Navega */}
               <ToolbarButton
                 icon='hint'
                 design={isHoveredInfo ? "Emphasized" : "Transparent"}
                 onMouseEnter={() => setisHoveredInfo(true)}
                 onMouseLeave={() => setisHoveredInfo(false)}
                 onClick={() => handleShowDetails(selectedRow)}
-                disabled={!selectedRow} // Se deshabilita si selectedRow es null
+                disabled={!selectedRow}
               />
               <ToolbarButton
                 icon='edit'
@@ -438,7 +301,7 @@ export default function Users() {
                 onMouseEnter={() => setisHoveredEdit(true)}
                 onMouseLeave={() => setisHoveredEdit(false)}
                 onClick={() => handleEditClick(selectedRow)}
-                disabled={!selectedRow} // Se deshabilita si selectedRow es null
+                disabled={!selectedRow}
               />
               <ToolbarButton
                 icon='delete'
@@ -446,20 +309,16 @@ export default function Users() {
                 onMouseEnter={() => setisHoveredDelete(true)}
                 onMouseLeave={() => setisHoveredDelete(false)}
                 onClick={() => handleOpenConfirmModal(selectedRow)}
-                disabled={!selectedRow} // Se deshabilita si selectedRow es null}
+                disabled={!selectedRow}
               />
             </FlexBox>
-            {/* Este componente empuja todo lo que sigue a la derecha */}
             <ToolbarSpacer />
-
             <Title>Usuarios ({filteredUsers.length})</Title>
-
           </Toolbar>
         }
-      />{/* Fin Barra de busqueda y crud */}
+      />
 
-      {/* Modales  */}
-      {/* Modal para creación */}
+      {/* Modales */}
       <ReusableModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -469,7 +328,6 @@ export default function Users() {
         submitButtonText="Crear Usuario"
       />
 
-      {/* Modal para edición */}
       <ReusableModal
         open={showEditModal}
         onClose={() => {
@@ -480,49 +338,23 @@ export default function Users() {
         fields={userEditFields}
         onSubmit={handleEditUser}
         submitButtonText="Guardar Cambios"
-        initialData={editingUser} // Puedes agregar esta prop para valores iniciales
+        initialData={editingUser}
       />
-      {/* Modal para detalles */}
-      {selectedUserData && (
-        <AlertModal
-          open={isDetailModalOpen}
-          onClose={handleCloseDetails}
-          title="Detalles del Usuario"
-          buttonText="Cerrar"
-          message={
-            <FlexBox
-              direction="Column"
-              className={styles.AlertContent}
-            >
-              <FlexBox className={styles.AlertRow}>
-                <Label wrappingType="Normal" showColon={true}>ID de Empleado</Label>
-                <Text>{selectedUserData.EMPLOYEEID}</Text>
-              </FlexBox>
-              <FlexBox className={styles.AlertRow}>
-                <Label wrappingType="Normal" showColon={true}>ID de CEDI</Label>
-                <Text>{selectedUserData.CEDIID}</Text>
-              </FlexBox>
-              <FlexBox className={styles.AlertRow}>
-                <Label wrappingType="Normal" showColon={true}>ID de Compañia</Label>
-                <Text>{selectedUserData.COMPANYID}</Text>
-              </FlexBox>
-              <FlexBox className={styles.AlertRow}>
-                <Label wrappingType="Normal" showColon={true}>Borrado</Label>
-                <Text>{selectedUserData.DETAIL_ROW.DELETED ? "Sí" : "No"}</Text>
-              </FlexBox>
-            </FlexBox>
-          }
-        />
-      )};
+
+      {/* NOTA: Eliminamos el AlertModal de aquí porque ahora
+          navegamos a una página nueva para ver los detalles.
+      */}
+
       <MessageBox
         open={showConfirmModal}
         titleText="Confirmar eliminación"
         actions={["Sí", "No"]}
-        type="Warning"  // <-- Esto le da el ícono y estilo de "Atención"
+        type="Warning"
         onClose={handleModalClose}
       >
         ¿Está seguro de que desea eliminarlo?
       </MessageBox>
+
       {error && (
         <MessageBox
           open={!!error}
@@ -534,6 +366,5 @@ export default function Users() {
         </MessageBox>
       )}
     </Page>
-
   );
 }

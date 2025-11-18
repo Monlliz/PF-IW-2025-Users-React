@@ -621,6 +621,18 @@ useEffect(() => {
           <AnalyticalTable
             data={filteredRoles}
             columns={[
+              {
+                Header: "Asignado",
+                accessor: "asignado",
+                Cell: (row) => (
+                  <CheckBox
+                    // checked={checkedApps[row.row.original.APPID] || false}
+                    // onChange={(e) =>
+                    //   handleAppCheckBoxChange(row.row.original.APPID, e.target.checked)
+                    // }
+                  />
+                )
+              },  
               { Header: "ROLEID", accessor: "ROLEID" },
               { Header: "ROLENAME", accessor: "ROLENAME" }
             ]}
@@ -657,6 +669,7 @@ useEffect(() => {
               maxWidth: "600px",
               minWidth: "220px",
             }}
+            disabled={!selectedRol}
           />
         </FlexBox>
 
@@ -666,7 +679,8 @@ useEffect(() => {
           wrap="Wrap"
           justifyContent="SpaceBetween"
           alignItems="Center"
-          style={{ width: "100%", gap: "0.75rem" }}
+          style={{ width: "100%", gap: "0.75rem", opacity: selectedRol ? 1 : 0.5, 
+                    pointerEvents: selectedRol ? 'auto' : 'none' }}
         >
           {/* Filtro */}
           <FlexBox
@@ -685,6 +699,7 @@ useEffect(() => {
                 setAppFilterType(e.detail.selectedOption.dataset.id)
               }
               style={{ width: "100%" }}
+              disabled={!selectedRol}
             >
               <Option data-id="all">Todas las aplicaciones</Option>
               <Option data-id="assigned">Solo aplicaciones asignadas</Option>

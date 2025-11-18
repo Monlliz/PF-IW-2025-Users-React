@@ -11,6 +11,7 @@ import Login from './pages/Login.jsx';
 import Process from './pages/Process.jsx';
 import Apps from './pages/Apps.jsx';
 import { Configuracion } from './pages/Configuracion.jsx';
+import UserDetail from './pages/UserDetail.jsx';
 
 //css
 //import './index.css';
@@ -40,6 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route index element={<Users />} />
             <Route path="roles" element={<Roles />} />
             <Route path="users" element={<Users />} />
+            <Route path="users/detail/:id" element={<UserDetail />} />
             <Route path="privileges" element={<Privileges />} />
             <Route path="configuracion" element={<Configuracion/>} />
           </Route>
