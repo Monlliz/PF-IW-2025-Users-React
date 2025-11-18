@@ -1,4 +1,4 @@
-const API_BASE_ROLES = 'http://localhost:3333/api/roles/crud';
+const API_BASE_ROLES = 'https://gadev-usuarios.onrender.com/api/roles/crud';
 
 /**
  * Función base para llamadas a API de roles

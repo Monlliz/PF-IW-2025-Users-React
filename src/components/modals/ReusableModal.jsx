@@ -295,7 +295,7 @@ const ReusableModal = ({
                                     {hasError} {/* Muestra el mensaje de error */}
                                 </div>
                             }
-                            disabled={field.disable || false}
+                            disabled={field.disabled || false}
                         />
                         {/* Muestra el error abajo también (por si acaso) */}
                         {hasError && (
@@ -313,7 +313,7 @@ const ReusableModal = ({
                             checked={value || false}
                             onChange={(e) => handleInputChange(field.name, e.target.checked)}
                             text={field.label}
-                            disabled={field.disable || false}
+                            disabled={field.disabled || false}
                         />
                         {hasError && (
                             <Text className={styles.ErrorTextModal}>
