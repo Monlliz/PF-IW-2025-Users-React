@@ -85,9 +85,10 @@ const ReusableModal = ({
      * Carga el formulario cuando se abre el modal.
      * Llena 'formData' con 'initialData' o los valores por defecto.
      */
-    // Cargar sociedades cuando se abre el modal
+   // Cargar sociedades y configurar la cascada inicial
     useEffect(() => {
         if (open) {
+            // 1. Construir la data del formulario
             const initialFormData = {};
             fields.forEach(field => {
                 const value =
@@ -99,13 +100,31 @@ const ReusableModal = ({
             setFormData(initialFormData);
             setErrors({});
 
-            // Llamada a API
+            // 2. Llamada a API y Configuración de Edición
             getSociedades().then((res) => {
-                setSociedades(res || []);
-                console.log(sociedades);
+                const listaSociedades = res || [];
+                setSociedades(listaSociedades);
+
+                // --- LÓGICA PARA MODO EDICIÓN ---
+                // Obtenemos el ID de la compañía que viene en los datos del usuario
+                const initialCompanyId = getNestedValue(initialData, "COMPANYID");
+                
+                if (initialCompanyId) {
+                    // Buscamos esa compañía en la lista (usando == para evitar problemas de tipo)
+                    const sociedadEncontrada = listaSociedades.find(s => s.IDVALOR == initialCompanyId);
+                    
+                    // Si existe y tiene hijos, llenamos la lista de CEDIs inmediatamente
+                    if (sociedadEncontrada && sociedadEncontrada.hijos) {
+                        setCedisDisponibles(sociedadEncontrada.hijos);
+                    }
+                } else {
+                    // Si es modo crear, limpiar
+                    setCedisDisponibles([]);
+                }
             });
         }
-    }, [open, fields]);
+    // IMPORTANTE: Agregamos 'initialData' a las dependencias para detectar el usuario a editar
+    }, [open, fields, initialData]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
     const handleCompanyChange = (selectedCompanyId) => {
@@ -238,7 +257,7 @@ const ReusableModal = ({
                         style={{ width: '100%' }}
 
                         // El 'value' es el TEXTO (VALOR) que corresponde al ID guardado
-                        value={sociedades.find(s => s.IDVALOR === value)?.VALOR || ""}
+                        value={sociedades.find(s => s.IDVALOR == value)?.VALOR || ""}
 
                         // 'onChange' se dispara al presionar Enter o perder el foco
                         onChange={(e) => {
@@ -246,7 +265,7 @@ const ReusableModal = ({
                             const selectedText = e.target.value;
 
                             // Buscamos la sociedad que coincida con ese texto
-                            const selectedSoc = sociedades.find(s => s.VALOR === selectedText);
+                            const selectedSoc = sociedades.find(s => s.VALOR == selectedText);
 
                             // Guardamos su IDVALOR (o un string vacío si no hay coincidencia)
                             handleCompanyChange(selectedSoc?.IDVALOR || "");
@@ -274,7 +293,7 @@ const ReusableModal = ({
                         style={{ width: '100%' }}
 
                         // El 'value' sigue siendo el TEXTO (VALOR) que coincide con el ID guardado
-                        value={cedisDisponibles.find(c => c.IDVALOR === value)?.VALOR || ""}
+                        value={cedisDisponibles.find(c => c.IDVALOR == value)?.VALOR || ""}
 
                         // 'onChange' se dispara al perder el foco o presionar Enter
                         onChange={(e) => {
@@ -282,7 +301,7 @@ const ReusableModal = ({
                             const selectedText = e.target.value;
 
                             // Buscamos el CEDI que coincida con el texto
-                            const selectedCedi = cedisDisponibles.find(c => c.VALOR === selectedText);
+                            const selectedCedi = cedisDisponibles.find(c => c.VALOR == selectedText);
 
                             // Guardamos el IDVALOR (o un string vacío si no hay coincidencia)
                             handleInputChange("CEDIID", selectedCedi?.IDVALOR || "");

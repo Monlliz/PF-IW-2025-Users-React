@@ -26,7 +26,7 @@ async function callApi(processType, body, dbServer) {
             throw new Error(errorData.message || `Error HTTP: ${response.status}`);
         }
 
-        // Si la respuesta no tiene contenido (Ej. un DELETE o un POST que no devuelve nada)
+        // Si la respuesta no tiene contenido (POST que no devuelve nada)
         if (response.status === 204) {
             return null;
         }
