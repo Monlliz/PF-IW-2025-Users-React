@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DbContext } from "../contexts/dbContext";
-import { getUserByIdService } from '../services/usersService.js';
+import { getUserByIdService, unassignRoleService } from '../services/usersService.js';
 import {
   Page,
   Bar,
@@ -49,6 +49,40 @@ export default function UserDetail() {
 
   const handleBack = () => {
     navigate(-1); // Regresa a la página anterior
+  };
+
+  // Estado y lógica para eliminar roles asignados al usuario (con confirmación)
+  const [showConfirmRoleDelete, setShowConfirmRoleDelete] = useState(false);
+  const [roleToRemove, setRoleToRemove] = useState(null);
+
+  const openRoleDeleteConfirm = (rol) => {
+    setRoleToRemove(rol);
+    setShowConfirmRoleDelete(true);
+  };
+
+  const handleRoleDelete = async (action) => {
+    setShowConfirmRoleDelete(false);
+    if (action !== 'Eliminar' || !roleToRemove) {
+      setRoleToRemove(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Llamamos al endpoint específico para desasignar rol si existe
+      const roleId = roleToRemove?.ROLEID || roleToRemove;
+      await unassignRoleService(user.USERID, roleId, dbServer);
+
+      // Actualizamos el estado local para reflejar el cambio
+      const updatedRoles = (user.ROLES || []).filter(r => r.ROLEID !== roleId && r !== roleId);
+      setUser(prev => ({ ...prev, ROLES: updatedRoles }));
+    } catch (err) {
+      console.error('Error al eliminar rol del usuario:', err);
+      setError(err.message || 'Error al eliminar el rol');
+    } finally {
+      setLoading(false);
+      setRoleToRemove(null);
+    }
   };
 
   // Estilo para las filas de datos
@@ -139,16 +173,30 @@ export default function UserDetail() {
               {/* ROLES (Es un array en tu modelo) */}
               <FlexBox style={{ ...rowStyle, borderBottom: 'none' }}>
                 <Label style={labelStyle}>Roles Asignados:</Label>
-                <FlexBox direction="Column">
-                    {user.ROLES && user.ROLES.length > 0 ? (
-                        user.ROLES.map((rol, index) => (
-                            <Text key={index} style={{ marginBottom: '4px' }}>
-                                • {rol.ROLEID}
-                            </Text>
-                        ))
-                    ) : (
-                        <Text>Sin roles asignados</Text>
-                    )}
+                <FlexBox direction="Column" style={{ gap: '6px' }}>
+                  <FlexBox>
+                    <Button
+                      design="Emphasized"
+                      icon="add"
+                      onClick={() => navigate(`/roles/assign/${user.USERID}`)}
+                    >Asignar un rol</Button>
+                  </FlexBox>
+
+                  {user.ROLES && user.ROLES.length > 0 ? (
+                    user.ROLES.map((rol, index) => (
+                      <FlexBox key={index} style={{ alignItems: 'center', gap: '0.5rem' }}>
+                        <Text>• {rol.ROLEID}</Text>
+                        <Button
+                          icon="delete"
+                          design="Transparent"
+                          title="Eliminar rol"
+                          onClick={() => openRoleDeleteConfirm(rol)}
+                        />
+                      </FlexBox>
+                    ))
+                  ) : (
+                    <Text>Sin roles asignados</Text>
+                  )}
                 </FlexBox>
               </FlexBox>
 
@@ -160,6 +208,15 @@ export default function UserDetail() {
           <Text>No se encontró el usuario.</Text>
         </FlexBox>
       )}
+      <MessageBox
+        open={showConfirmRoleDelete}
+        titleText="Eliminar rol"
+        actions={["Eliminar", "Cancelar"]}
+        type="Warning"
+        onClose={handleRoleDelete}
+      >
+        ¿Desea eliminar este rol del usuario?
+      </MessageBox>
     </Page>
   );
 }

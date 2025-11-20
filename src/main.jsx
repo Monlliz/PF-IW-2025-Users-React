@@ -6,6 +6,7 @@ import { Routes, Route,Navigate } from 'react-router-dom';
 import ShellLayout from './pages/ShellLayout.jsx'
 import Users from './pages/Users.jsx';
 import Roles from './pages/Roles.jsx';
+import RolesAssign from './pages/RolesAssign.jsx';
 import Privileges from './pages/Privileges.jsx';
 import Login from './pages/Login.jsx';
 import Process from './pages/Process.jsx';
@@ -40,6 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
            {/* Rutas hijas que se renderizarán dentro del <Outlet /> */}
             <Route index element={<Users />} />
             <Route path="roles" element={<Roles />} />
+            <Route path="roles/assign/:userId" element={<RolesAssign />} />
             <Route path="users" element={<Users />} />
             <Route path="users/detail/:id" element={<UserDetail />} />
             <Route path="privileges" element={<Privileges />} />

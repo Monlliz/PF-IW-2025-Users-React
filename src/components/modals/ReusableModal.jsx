@@ -85,13 +85,14 @@ const ReusableModal = ({
      * Carga el formulario cuando se abre el modal.
      * Llena 'formData' con 'initialData' o los valores por defecto.
      */
-    // Cargar sociedades cuando se abre el modal
+   // Cargar sociedades y configurar la cascada inicial
     useEffect(() => {
         if (open) {
+            // 1. Construir la data del formulario
             const initialFormData = {};
             fields.forEach(field => {
                 const value =
-                    getNestedValue(initialData, field.name) ??
+                        getNestedValue(initialData, field.name) ??
                     field.default ??
                     (field.type === 'checkbox' ? false : '');
                 setNestedValue(initialFormData, field.name, value);
@@ -99,12 +100,62 @@ const ReusableModal = ({
             setFormData(initialFormData);
             setErrors({});
 
-            // Llamada a API
+            // 2. Llamada a API y Configuración de Edición
+           // 2. Cargar las sociedades y FILTRAR IDs no numéricos
             getSociedades().then((res) => {
-                setSociedades(res || []);
-                console.log(sociedades);
+                const rawList = res || [];
+
+                // Regex que permite SOLO números (del 0 al 9)
+                // ^ = inicio, \d = digito, + = uno o más, $ = fin
+                const soloNumerosRegex = /^\d+$/;
+
+                const listaSociedades = rawList.reduce((acc, sociedad) => {
+                    // --- PASO 1: Validar ID de la Sociedad ---
+                    // Convertimos a String para evaluar el regex de forma segura
+                    const idSociedadStr = String(sociedad.IDVALOR || "");
+
+                    // Si NO pasa la prueba (tiene letras o es vacío), la saltamos
+                    if (!soloNumerosRegex.test(idSociedadStr)) {
+                        return acc; 
+                    }
+
+                    // --- PASO 2: Validar IDs de los Cedis (Hijos) ---
+                    // Filtramos el arreglo de hijos bajo la misma regla
+                    const hijosValidos = (sociedad.hijos || []).filter(cedi => {
+                        const idCediStr = String(cedi.IDVALOR || "");
+                        return soloNumerosRegex.test(idCediStr);
+                    });
+
+                    // --- PASO 3: Guardar la sociedad limpia ---
+                    // Agregamos la sociedad válida con su nueva lista de hijos filtrados
+                    acc.push({
+                        ...sociedad,
+                        hijos: hijosValidos
+                    });
+
+                    return acc;
+                }, []);
+                console.log(listaSociedades);
+                setSociedades(listaSociedades);
+
+                // --- LÓGICA DE EDICIÓN (Con la lista ya filtrada) ---
+                const initialCompanyId = getNestedValue(initialData, "COMPANYID");
+                
+                if (initialCompanyId) {
+                    // Buscamos usando == por si uno es string y el otro number
+                    const sociedadEncontrada = listaSociedades.find(s => s.IDVALOR == initialCompanyId);
+                    
+                    
+                    if (sociedadEncontrada && sociedadEncontrada.hijos) {
+                        setCedisDisponibles(sociedadEncontrada.hijos);
+                    }
+                } else {
+                    setCedisDisponibles([]);
+                }
+        
             });
         }
+    // IMPORTANTE: Agregamos 'initialData' a las dependencias para detectar el usuario a editar
     }, [open, fields]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
@@ -238,7 +289,7 @@ const ReusableModal = ({
                         style={{ width: '100%' }}
 
                         // El 'value' es el TEXTO (VALOR) que corresponde al ID guardado
-                        value={sociedades.find(s => s.IDVALOR === value)?.VALOR || ""}
+                        value={sociedades.find(s => s.IDVALOR == value)?.VALOR || ""}
 
                         // 'onChange' se dispara al presionar Enter o perder el foco
                         onChange={(e) => {
@@ -246,7 +297,7 @@ const ReusableModal = ({
                             const selectedText = e.target.value;
 
                             // Buscamos la sociedad que coincida con ese texto
-                            const selectedSoc = sociedades.find(s => s.VALOR === selectedText);
+                            const selectedSoc = sociedades.find(s => s.VALOR == selectedText);
 
                             // Guardamos su IDVALOR (o un string vacío si no hay coincidencia)
                             handleCompanyChange(selectedSoc?.IDVALOR || "");
@@ -274,7 +325,7 @@ const ReusableModal = ({
                         style={{ width: '100%' }}
 
                         // El 'value' sigue siendo el TEXTO (VALOR) que coincide con el ID guardado
-                        value={cedisDisponibles.find(c => c.IDVALOR === value)?.VALOR || ""}
+                        value={cedisDisponibles.find(c => c.IDVALOR == value)?.VALOR || ""}
 
                         // 'onChange' se dispara al perder el foco o presionar Enter
                         onChange={(e) => {
@@ -282,7 +333,7 @@ const ReusableModal = ({
                             const selectedText = e.target.value;
 
                             // Buscamos el CEDI que coincida con el texto
-                            const selectedCedi = cedisDisponibles.find(c => c.VALOR === selectedText);
+                            const selectedCedi = cedisDisponibles.find(c => c.VALOR == selectedText);
 
                             // Guardamos el IDVALOR (o un string vacío si no hay coincidencia)
                             handleInputChange("CEDIID", selectedCedi?.IDVALOR || "");
@@ -303,7 +354,9 @@ const ReusableModal = ({
             );
         }
 
-        switch (field.type) {
+        const fieldType = field.type || 'text';
+
+        switch (fieldType) {
             case 'text':
             case 'email':
             case 'number':
@@ -324,7 +377,7 @@ const ReusableModal = ({
                                     {hasError} {/* Muestra el mensaje de error */}
                                 </div>
                             }
-                            disabled={field.disable || false}
+                            disabled={field.disabled || false}
                         />
                         {/* Muestra el error abajo también (por si acaso) */}
                         {hasError && (
@@ -342,7 +395,7 @@ const ReusableModal = ({
                             checked={value || false}
                             onChange={(e) => handleInputChange(field.name, e.target.checked)}
                             text={field.label}
-                            disabled={field.disable || false}
+                            disabled={field.disabled || false}
                         />
                         {hasError && (
                             <Text className={styles.ErrorTextModal}>

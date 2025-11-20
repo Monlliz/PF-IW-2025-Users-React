@@ -9,24 +9,31 @@ const API_Users = `${API_BASE}users/crud`;
 async function callApi(processType, body, dbServer) {
     try {
         const url = `${API_Users}?ProcessType=${processType}&LoggedUser=Usuario1&DBServer=${dbServer}`;
-
+        const payload = { usuario: body };
         const config = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ "usuario": body })
+            body: JSON.stringify(payload)
         };
+
+        console.log(`📡 usersService.callApi -> ${url}`);
+        console.log('📦 payload:', JSON.stringify(payload, null, 2));
 
         const response = await fetch(url, config);
 
         if (!response.ok) {
-            // Si el servidor responde con un error (4xx, 5xx), lanza una excepción
-            const errorData = await response.json().catch(() => ({})); // Intenta leer el JSON de error
-            throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+            // Si el servidor responde con un error (4xx, 5xx), intentamos leer el cuerpo y mostrarlo
+            const text = await response.text().catch(() => null);
+            let errorData = null;
+            try { errorData = text ? JSON.parse(text) : null; } catch(e) { /* not json */ }
+            console.error('🔴 usersService.callApi - error response body:', text || errorData);
+            const serverMessage = errorData?.message || errorData?.value || text || `HTTP ${response.status}`;
+            throw new Error(serverMessage);
         }
 
-        // Si la respuesta no tiene contenido (Ej. un DELETE o un POST que no devuelve nada)
+        // Si la respuesta no tiene contenido (POST que no devuelve nada)
         if (response.status === 204) {
             return null;
         }
@@ -74,11 +81,19 @@ export async function createUserService (userData, dbServer) {
  * ACTUALIZA un usuario existente.
  */
 export const updateUserService = async (updatedUserData, dbServer) => {
-  // Llama a callApi con el 'updateOne' para actualizar.
-  const response = await callApi('updateOne', updatedUserData, dbServer);
-  
-  // Devuelve la respuesta
-  return response;
+    // Evitar enviar propiedades que el modelo 'usuario' no acepta (ej. ROLES)
+    const payload = { ...updatedUserData };
+    if (payload.hasOwnProperty('ROLES')) {
+        delete payload.ROLES;
+    }
+
+    console.log('📦 updateUserService payload (sin ROLES):', payload);
+
+    // Llama a callApi con el 'updateOne' para actualizar.
+    const response = await callApi('updateOne', payload, dbServer);
+
+    // Devuelve la respuesta
+    return response;
 };
 
 /**
@@ -126,6 +141,7 @@ export const getSociedades = async () =>{
 
         const data = await response.json();
         const filterData = data.data[0]?.dataRes|| [];
+        console.log(filterData);
         
         return filterData;
         
@@ -169,4 +185,26 @@ export async function getUserByIdService(userId, dbServer) {
     // Si no es array, asumimos que es el objeto usuario directo
     return responseData;
 };
+
+/**
+ * Asigna un rol a un usuario usando el ProcessType 'assignRol'
+ * @param {string} userId
+ * @param {string} roleId
+ * @param {string} dbServer
+ */
+export async function assignRoleService(userId, roleId, dbServer) {
+    const body = { USERID: userId, ROLEID: roleId };
+    return await callApi('assignRol', body, dbServer);
+}
+
+/**
+ * Desasigna un rol a un usuario usando el ProcessType 'unassignRol'
+ * @param {string} userId
+ * @param {string} roleId
+ * @param {string} dbServer
+ */
+export async function unassignRoleService(userId, roleId, dbServer) {
+    const body = { USERID: userId, ROLEID: roleId };
+    return await callApi('unassignRol', body, dbServer);
+}
 

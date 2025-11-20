@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from "react";
 import AlertModal from "../components/modals/AlertModal";
 import ReusableModal from "../components/modals/ReusableModal";
 import styles from "../styles/Roles.module.css";
-import { fetchPrivilegesData, fetchViews, fetchProcesses, addView, deleteHardView, addProcess, deleteHardProcess, createLabel } from "../services/applicationsService";
+import { fetchPrivilegesData, fetchViews, fetchProcesses, fetchPrivileges, addView, deleteHardView, addProcess, deleteHardProcess, addPrivilege, deleteHardPrivilege, createLabel, deleteLabel, updateLabel } from "../services/applicationsService";
 import {
   Page,
   Bar,
@@ -140,8 +140,8 @@ export default function PrivilegesLayout() {
   const [filteredProcesses, setFilteredProcesses] = useState([]);
   const [selectedProcess, setSelectedProcess] = useState(null);
   const [filteredPrivileges, setFilteredPrivileges] = useState([]);
+  const [privileges, setPrivileges] = useState([]);
 
-  
   // Maps loaded from single API route (fallback to the simulated constants)
   const [processesMap, setProcessesMap] = useState({});
   const [privilegesMap, setPrivilegesMap] = useState({});
@@ -173,7 +173,7 @@ export default function PrivilegesLayout() {
   const [isProcessDetailModalOpen, setIsProcessDetailModalOpen] = useState(false);
   const [selectedProcessDetails, setSelectedProcessDetails] = useState(null);
   const [editingProcess, setEditingProcess] = useState(null);
-  const [itemToDeleteProcess, setItemToDeleteProcess] = useState(null);
+
 
   // Hover states and modal states for Privileges
   const [isHoveredAddPriv, setHoveredAddPriv] = useState(false);
@@ -208,9 +208,10 @@ export default function PrivilegesLayout() {
   const [privilegeSearchQuery, setPrivilegeSearchQuery] = useState('');
   const [currentPrivileges, setCurrentPrivileges] = useState([]);
   // Modales
-  const [modalType, setModalType] = useState(null); 
-  const [modalContext, setModalContext] = useState(null); 
+  const [modalType, setModalType] = useState(null);
+  const [modalContext, setModalContext] = useState(null);
   const [modalData, setModalData] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // {context, data}
 
   const closeModal = () => {
     setModalType(null);
@@ -329,6 +330,57 @@ export default function PrivilegesLayout() {
         [processId]: !checked
       }));
       setLoadError(`Error al actualizar proceso: ${error.message}`);
+    }
+  };
+
+  // Manejador específico para checkboxes de privilegios (con llamada a API)
+  const handlePrivilegeCheckBoxChange = async (privilegeId, checked) => {
+    // Actualizar estado local inmediatamente
+    setCheckedPrivileges((prev) => ({
+      ...prev,
+      [privilegeId]: checked
+    }));
+
+    // Si no hay process, view o app seleccionada, no hacer nada
+    if (!selectedProcess || !selectedView || !selectedApp) return;
+
+    try {
+      if (checked) {
+        // Agregar privilegio al proceso
+        await addPrivilege(selectedApp.APPID, selectedView.VIEWSID, selectedProcess.PROCESSID, { PRIVILEGEID: privilegeId }, dbServer);
+        console.log(`Privilegio ${privilegeId} agregado a proceso ${selectedProcess.PROCESSID}`);
+        // Actualizar privilegesMap local para reflejar la asignación inmediatamente
+        setPrivilegesMap((prev) => {
+          const next = { ...(prev || {}) };
+          const list = Array.isArray(next[selectedProcess.PROCESSID]) ? [...next[selectedProcess.PROCESSID]] : [];
+          // Evitar duplicados
+          if (!list.some(p => String(p.PRIVILEGEID) === String(privilegeId))) {
+            const desc = (privileges || []).find(pr => String(pr.PRIVILEGEID) === String(privilegeId))?.Descripcion || '';
+            list.push({ PRIVILEGEID: privilegeId, Descripcion: desc });
+          }
+          next[selectedProcess.PROCESSID] = list;
+          return next;
+        });
+      } else {
+        // Remover privilegio del proceso
+        await deleteHardPrivilege(selectedApp.APPID, selectedView.VIEWSID, selectedProcess.PROCESSID, privilegeId, dbServer);
+        console.log(`Privilegio ${privilegeId} removido de proceso ${selectedProcess.PROCESSID}`);
+        // Actualizar privilegesMap local para remover la asignación
+        setPrivilegesMap((prev) => {
+          const next = { ...(prev || {}) };
+          const list = Array.isArray(next[selectedProcess.PROCESSID]) ? next[selectedProcess.PROCESSID].filter(p => String(p.PRIVILEGEID) !== String(privilegeId)) : [];
+          next[selectedProcess.PROCESSID] = list;
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar privilegio en proceso:', error);
+      // Revertir cambio en caso de error
+      setCheckedPrivileges((prev) => ({
+        ...prev,
+        [privilegeId]: !checked
+      }));
+      setLoadError(`Error al actualizar privilegio: ${error.message}`);
     }
   };
 
@@ -540,46 +592,6 @@ export default function PrivilegesLayout() {
     setFilteredProcesses(result);
   };
 
-  // Buscar
-   // Aplicar filtrado y ordenamiento a los privilegios
-  const applyPrivilegeFiltersAndSort = (baseData = privilegesMap[selectedProcess?.PROCESSID] || []) => {
-    // Si no hay proceso seleccionado, no mostrar nada
-    if (!selectedProcess) {
-      setCurrentPrivileges([]);
-      return;
-    }
-    let result = [...(baseData || [])];
-    // Aplicar búsqueda de texto
-    if (privilegeSearchQuery) {
-      const q = privilegeSearchQuery.toLowerCase();
-      result = result.filter((d) =>
-        Object.values(d).some((v) => String(v).toLowerCase().includes(q))
-      );
-    }
-    // Ordenar según la selección
-    if (privilegeSortType === 'name') {
-      result.sort((a, b) => String(a.PRIVILEGEID).localeCompare(String(b.PRIVILEGEID)));
-    } 
-    // No hay 'assigned-first' por la misma razón que el filtro
-    setCurrentPrivileges(result);
-  };
-  // Efecto para aplicar filtros y ordenamiento de Privilegios
-  useEffect(() => {
-    // Recargar la lista base al cambiar los datos del proceso seleccionado o filtros
-    if (selectedProcess) {
-      const baseData = privilegesMap[selectedProcess.PROCESSID] || [];
-      applyPrivilegeFiltersAndSort(baseData);
-    } else {
-      setCurrentPrivileges([]);
-    }
-  }, [selectedProcess, privilegesMap, privilegeFilterType, privilegeSortType, privilegeSearchQuery]);
-
-  // Búsqueda específica para privilegios (respeta filtros y ordenamientos)
-  const handlePrivilegeSearch = (event) => {
-    // Al cambiar la búsqueda, actualizamos el estado. El useEffect se encargará del resto.
-    setPrivilegeSearchQuery(event.target.value);
-  };
-  
   // Cargar datos
   const loadAllData = async () => {
     setLoadingData(true);
@@ -628,6 +640,22 @@ export default function PrivilegesLayout() {
       // NO marcar checkboxes aquí - se hace en el efecto cuando se selecciona una vista
       setCheckedProcesses({});
       setFilteredProcesses([]);
+
+      // Obtener privilegios desde el nuevo endpoint de catálogo
+      try {
+        const apiPrivileges = await fetchPrivileges(dbServer);
+        const mappedPrivileges = (Array.isArray(apiPrivileges) ? apiPrivileges : []).map((p) => ({
+          PRIVILEGEID: p.IdValor,
+          Descripcion: p.VALOR || "Sin descripcion"
+        }));
+        console.log('Mapped privileges:', mappedPrivileges);
+        setPrivileges(mappedPrivileges);
+      } catch (errPrivileges) {
+        console.warn('No se pudieron obtener privilegios desde API:', errPrivileges);
+        setPrivileges([]);
+      }
+      setCheckedPrivileges({});
+      setFilteredPrivileges([]);
     } catch (err) {
       setLoadError(err.message || String(err));
     } finally {
@@ -680,7 +708,14 @@ export default function PrivilegesLayout() {
     const row = e.detail.row.original;
     const procKey = row?.PROCESSID;
     setSelectedProcess({ ...row, PROCESSID: procKey });
-    setFilteredPrivileges(privilegesMap[row?.PROCESSID] || []);
+    setSelectedPrivilege(null);
+    // Mostrar todos los privilegios disponibles, marcados los asignados
+    const allPrivs = privileges || [];
+    const assignedPrivs = privilegesMap[procKey] || [];
+    const checked = {};
+    assignedPrivs.forEach(p => checked[p.PRIVILEGEID] = true);
+    setCheckedPrivileges(checked);
+    setFilteredPrivileges(allPrivs);
   };
 
   // Seleccionar privilegio (fila)
@@ -770,29 +805,48 @@ export default function PrivilegesLayout() {
         return;
       }
 
-      if (modalContext === 'privilege') {
-        if (!selectedProcess) {
-          alert('Seleccione un proceso antes de crear un privilegio.');
-          return;
-        }
+    } catch (error) {
+      console.error('Error creando label:', error);
+      alert('Error al crear. Ver consola para detalles.');
+    }
+  };
 
+  // Handler genérico para submit de los modales de eliminación (view/process/privilege)
+  const handleDeleteModalSubmit = async () => {
+    try {
+      if (!modalContext || !modalData) return closeModal();
+
+      if (modalContext === 'view') {
         const label = {
-          idetiqueta: 'IdPrivilegios',
-          idvalor: formData.PRIVILEGEID,
-          valor: formData.Descripcion,
-          alias: formData.PRIVILEGEID
+          idetiqueta: 'IdVistas',
+          idvalor: modalData.VIEWSID
         };
-        await createLabel(label, dbServer);
+        await deleteLabel(label, dbServer);
 
-        // Recargar datos para que la UI muestre los privilegios creados
+        // Recargar todos los datos desde el backend para mostrar los cambios
         await loadAllData();
 
         closeModal();
         return;
       }
+
+      if (modalContext === 'process') {
+        const label = {
+          idetiqueta: 'IdProcesos',
+          idvalor: modalData.PROCESSID
+        };
+        await deleteLabel(label, dbServer);
+
+        // Recargar datos para reflejar los cambios desde el servidor
+        await loadAllData();
+
+        closeModal();
+        return;
+      }
+
     } catch (error) {
-      console.error('Error creando label:', error);
-      alert('Error al crear. Ver consola para detalles.');
+      console.error('Error eliminando label:', error);
+      alert('Error al eliminar. Ver consola para detalles.');
     }
   };
 
@@ -974,7 +1028,7 @@ export default function PrivilegesLayout() {
                 onMouseEnter={() => setHoveredDeleteView(true)}
                 onMouseLeave={() => setHoveredDeleteView(false)}
                 disabled={!selectedView}
-                onClick={() => { setItemToDeleteView(selectedView); setShowConfirmView(true); }}
+                onClick={() => { setModalType('delete'); setModalContext('view'); setModalData(selectedView); }}
               />
             </FlexBox>
           </Toolbar>
@@ -1130,7 +1184,7 @@ export default function PrivilegesLayout() {
                   onMouseEnter={() => setHoveredDeleteProcess(true)}
                   onMouseLeave={() => setHoveredDeleteProcess(false)}
                   disabled={!selectedProcess}
-                  onClick={() => { setItemToDeleteProcess(selectedProcess); setShowConfirmProcess(true); }}
+                  onClick={() => { setModalType('delete'); setModalContext('process'); setModalData(selectedProcess); }}
                 />
               </FlexBox>
             </Toolbar>
@@ -1158,144 +1212,21 @@ export default function PrivilegesLayout() {
 
           {/* Panel derecho: Privilegios */}
           <div>
-            <Title style={{ fontWeight: 500, fontSize: "1.5em" , paddingTop:"0.7rem"}}>Privilegios</Title>
-            <FlexBox
-              direction="Column"
-              style={{
-                width: "100%",
-                gap: "1rem",
-                marginBottom: "1rem",
-                // marginTop: "1rem"
-              }}
-            >
-              {/* 🔍 Barra de búsqueda responsiva */}
-              <FlexBox
-                direction="Row"
-                justifyContent="Center"
-                wrap="Wrap"
-                style={{ width: "100%", gap: "5.75rem" }}
-              >
-                <Input
-                  icon="search"
-                  placeholder="Buscar privilegio..."
-                  onInput={handlePrivilegeSearch}
-                  value={privilegeSearchQuery}
-                  style={{
-                    flex: "1 1 300px",
-                    maxWidth: "600px",
-                    minWidth: "30px",
-                  }}
-                  disabled={!selectedProcess}
-                />
-              </FlexBox>
-              {/* 🎛️ Controles de filtro y orden responsivos */}
-              <FlexBox
-                direction="Row"
-                wrap="Wrap"
-                justifyContent="SpaceBetween"
-                alignItems="Center"
-                style={{ width: "100%", gap: "0.75rem" }}
-              >
-                {/* Filtro (Se mantiene por uniformidad, aunque el filtro 'assigned' no aplique) */}
-                <FlexBox
-                  direction="Row"
-                  alignItems="Center"
-                  style={{
-                    gap: "0.5rem",
-                    minWidth: "20px",
-                    flex: "1 1 220px",
-                  }}
-                >
-                  <Label>Filtrar por:</Label>
-                  <Select
-                    value={privilegeFilterType}
-                    onChange={(e) =>
-                      setPrivilegeFilterType(e.detail.selectedOption.dataset.id)
-                    }
-                    style={{ width: "100%" }}
-                    disabled={!selectedProcess}
-                  >
-                    <Option data-id="all">Todos los privilegios</Option>
-                    <Option data-id="assigned" disabled>Asignados (No Aplica)</Option>
-                  </Select>
-                </FlexBox>
-                {/* Orden */}
-                <FlexBox
-                  direction="Row"
-                  alignItems="Center"
-                  style={{
-                    gap: "0.5rem",
-                    minWidth: "20px",
-                    flex: "1 1 220px",
-                  }}
-                >
-                  <Label>Ordenar por:</Label>
-                  <Select
-                    value={privilegeSortType}
-                    onChange={(e) =>
-                      setPrivilegeSortType(e.detail.selectedOption.dataset.id)
-                    }
-                    style={{ width: "100%" }}
-                    disabled={!selectedProcess}
-                  >
-                    <Option data-id="name">Por nombre</Option>
-                    <Option data-id="assigned-first" disabled>Asignados primero (No Aplica)</Option>
-                  </Select>
-                </FlexBox>
-              </FlexBox>
-            </FlexBox>
 
-            <Toolbar style={{ paddingTop: 0, background: 'none', boxShadow: 'none' }}>
-              <FlexBox>
-                <ToolbarButton
-                  icon="add"
-                  design={isHoveredAddPriv ? 'Positive' : 'Transparent'}
-                  onMouseEnter={() => setHoveredAddPriv(true)}
-                  onMouseLeave={() => setHoveredAddPriv(false)}
-                  disabled={!selectedProcess}
-                  onClick={() => { setModalType('create'); setModalContext('privilege'); }}
-                />
-                <ToolbarButton
-                  icon="hint"
-                  design={isHoveredInfoPriv ? 'Emphasized' : 'Transparent'}
-                  onMouseEnter={() => setHoveredInfoPriv(true)}
-                  onMouseLeave={() => setHoveredInfoPriv(false)}
-                  disabled={!selectedPrivilege}
-                  onClick={() => { setSelectedPrivDetails(selectedPrivilege); setIsPrivDetailModalOpen(true); }}
-                />
-                <ToolbarButton
-                  icon="edit"
-                  design={isHoveredEditPriv ? 'Attention' : 'Transparent'}
-                  onMouseEnter={() => setHoveredEditPriv(true)}
-                  onMouseLeave={() => setHoveredEditPriv(false)}
-                  disabled={!selectedPrivilege}
-                  onClick={() => { setEditingPriv(selectedPrivilege); setShowEditPriv(true); }}
-                />
-                <ToolbarButton
-                  icon="delete"
-                  design={isHoveredDeletePriv ? 'Negative' : 'Transparent'}
-                  onMouseEnter={() => setHoveredDeletePriv(true)}
-                  onMouseLeave={() => setHoveredDeletePriv(false)}
-                  disabled={!selectedPrivilege}
-                  onClick={() => { setItemToDeletePriv(selectedPrivilege); setShowConfirmPriv(true); }}
-                />
-              </FlexBox>
-            </Toolbar>
-
-            <AnalyticalTable
+            <AnalyticalTable style={{paddingTop: "50%"}} 
               data={filteredPrivileges.map(priv => ({
                 ...priv,
                 ViewID: selectedView?.VIEWSID || '',
                 ProcessID: selectedProcess?.PROCESSID || ''
               }))}
               columns={[
-                { 
-                  Header: "Asignado", 
+                {
+                  Header: "Asignado",
                   accessor: "asignado",
                   Cell: (row) => (
                     <CheckBox
                       checked={checkedPrivileges[row.row.original.PRIVILEGEID] || false}
-                      onChange={(e) => handleCheckBoxChange(row.row.original.PRIVILEGEID, e.target.checked, setCheckedPrivileges)}
+                      onChange={(e) => handlePrivilegeCheckBoxChange(row.row.original.PRIVILEGEID, e.target.checked)}
                     />
                   )
                 },
@@ -1319,15 +1250,21 @@ export default function PrivilegesLayout() {
               ? "Crear nueva Vista"
               : modalType === "edit"
               ? "Editar Vista"
+              : modalType === "delete"
+              ? "Confirmar eliminación"
               : "Detalles de Vista"
           }
-          fields={[
-            { label: "VIEWID", name: "VIEWID", type: 'text', required: true, placeholder: 'Identificador único (ej. IdPronosticoVentas)' },
-            { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Nombre legible de la vista' },
-            { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
-          ]}
-          onSubmit={handleCreateModalSubmit}
-          submitButtonText="Guardar"
+          fields={
+            modalType === "delete"
+              ? []
+              : [
+                  { label: "VIEWID", name: "VIEWID", type: 'text', required: true, placeholder: 'Identificador único (ej. IdPronosticoVentas)' },
+                  { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Nombre legible de la vista' },
+                  { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
+                ]
+          }
+          onSubmit={modalType === "delete" ? handleDeleteModalSubmit : handleCreateModalSubmit}
+          submitButtonText={modalType === "delete" ? "Eliminar" : "Guardar"}
         />
       )}
 
@@ -1338,35 +1275,26 @@ export default function PrivilegesLayout() {
           title={
             modalType === "create"
               ? "Crear nuevo Proceso"
-              : "Editar Proceso"
+              : modalType === "edit"
+              ? "Editar Proceso"
+              : modalType === "delete"
+              ? "Confirmar eliminación"
+              : ""
           }
-          fields={[
-            { label: "PROCESSID", name: "PROCESSID", type: 'text', required: true, placeholder: 'Identificador único del proceso' },
-            { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Descripción del proceso' },
-            { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
-          ]}
-          onSubmit={handleCreateModalSubmit}
-          submitButtonText="Guardar"
+          fields={
+            modalType === "delete"
+              ? []
+              : [
+                  { label: "PROCESSID", name: "PROCESSID", type: 'text', required: true, placeholder: 'Identificador único del proceso' },
+                  { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Descripción del proceso' },
+                  { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
+                ]
+          }
+          onSubmit={modalType === "delete" ? handleDeleteModalSubmit : handleCreateModalSubmit}
+          submitButtonText={modalType === "delete" ? "Eliminar" : "Guardar"}
         />
       )}
 
-      {modalType && modalContext === "privilege" && (
-        <ReusableModal
-          open={true}
-          onClose={closeModal}
-          title={
-            modalType === "create"
-              ? "Crear nuevo Privilegio"
-              : "Editar Privilegio"
-          }
-          fields={[
-            { label: "PRIVILEGEID", name: "PRIVILEGEID", type: 'text', required: true, placeholder: 'Identificador del privilegio' },
-            { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Descripción del privilegio' }
-          ]}
-          onSubmit={handleCreateModalSubmit}
-          submitButtonText="Guardar"
-        />
-      )}
 
       {/* ===== Modales adicionales: Views (editar, eliminar, detalles) ===== */}
       {showEditView && (
@@ -1374,9 +1302,28 @@ export default function PrivilegesLayout() {
           open={showEditView}
           onClose={() => setShowEditView(false)}
           title="Editar Vista"
-          fields={[{ label: 'VIEWID', name: 'VIEWID' }, { label: 'Descripción', name: 'Descripcion' }]}
+          fields={[
+            { label: "VIEWID", name: "VIEWSID", type: 'text', required: true, disabled: true },
+            { label: "Descripción", name: "Descripcion", type: 'text', required: true },
+            { label: "Alias (opcional)", name: "Alias", type: 'text', required: false }
+          ]}
           initialData={editingView}
-          onSubmit={() => setShowEditView(false)}
+          onSubmit={async (formData) => {
+            try {
+              const label = {
+                idetiqueta: 'IdVistas',
+                idvalor: formData.VIEWSID,
+                valor: formData.Descripcion,
+                alias: formData.Alias || formData.VIEWSID
+              };
+              await updateLabel(label, dbServer);
+              await loadAllData();
+              setShowEditView(false);
+            } catch (error) {
+              console.error('Error updating view:', error);
+              alert('Error al actualizar vista.');
+            }
+          }}
           submitButtonText="Guardar"
         />
       )}
@@ -1418,9 +1365,28 @@ export default function PrivilegesLayout() {
           open={showEditProcess}
           onClose={() => setShowEditProcess(false)}
           title="Editar Proceso"
-          fields={[{ label: 'PROCESSID', name: 'PROCESSID' }, { label: 'Descripción', name: 'Descripcion' }]}
+          fields={[
+            { label: 'PROCESSID', name: 'PROCESSID', type: 'text', required: true, disabled: true },
+            { label: 'Descripción', name: 'Descripcion', type: 'text', required: true },
+            { label: 'Alias (opcional)', name: 'Alias', type: 'text', required: false }
+          ]}
           initialData={editingProcess}
-          onSubmit={() => setShowEditProcess(false)}
+          onSubmit={async (formData) => {
+            try {
+              const label = {
+                idetiqueta: 'IdProcesos',
+                idvalor: formData.PROCESSID,
+                valor: formData.Descripcion,
+                alias: formData.Alias || formData.PROCESSID
+              };
+              await updateLabel(label, dbServer);
+              await loadAllData();
+              setShowEditProcess(false);
+            } catch (error) {
+              console.error('Error updating process:', error);
+              alert('Error al actualizar proceso.');
+            }
+          }}
           submitButtonText="Guardar"
         />
       )}
@@ -1456,57 +1422,6 @@ export default function PrivilegesLayout() {
         />
       )}
 
-      {/* ===== Modales adicionales: Privilegios (editar, eliminar, detalles) ===== */}
-      {showEditPriv && (
-        <ReusableModal
-          open={showEditPriv}
-          onClose={() => setShowEditPriv(false)}
-          title="Editar Privilegio"
-          fields={[{ label: 'PRIVILEGEID', name: 'PRIVILEGEID' }, { label: 'Descripción', name: 'Descripcion' }]}
-          initialData={editingPriv}
-          onSubmit={() => setShowEditPriv(false)}
-          submitButtonText="Guardar"
-        />
-      )}
-
-      {showConfirmPriv && (
-        <AlertModal
-          open={showConfirmPriv}
-          onClose={() => setShowConfirmPriv(false)}
-          title="Confirmar eliminación"
-          buttonText="Cerrar"
-          message={<Text>¿Está seguro de eliminar el privilegio seleccionado?</Text>}
-        />
-      )}
-
-      {selectedPrivDetails && (
-        <AlertModal
-          open={isPrivDetailModalOpen}
-          onClose={() => setIsPrivDetailModalOpen(false)}
-          title="Detalles del Privilegio"
-          buttonText="Cerrar"
-          message={
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                <FlexBox>
-                <Label>Vista:</Label>
-                <Text>{selectedPrivDetails.ViewID}</Text>
-              </FlexBox>
-              <FlexBox>
-                <Label>Proceso:</Label>
-                <Text>{selectedPrivDetails.ProcessID}</Text>
-              </FlexBox>
-              <FlexBox>
-                <Label>PRIVILEGIEID:</Label>
-                <Text>{selectedPrivDetails.PRIVILEGEID}</Text>
-              </FlexBox>
-              <FlexBox>
-                <Label>Descripción:</Label>
-                <Text>{selectedPrivDetails.Descripcion}</Text>
-              </FlexBox>
-            </FlexBox>
-          }
-        />
-      )}
-    </Page>
+      </Page> 
   );
 }
