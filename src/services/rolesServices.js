@@ -1,4 +1,5 @@
-const API_BASE_ROLES = 'https://gadev-usuarios.onrender.com/api/roles/crud';
+// Usa la URL desde env (Vite) si está disponible, si no usa localhost por defecto
+const API_BASE_ROLES = import.meta.env.VITE_API_ROLES_BASE || 'http://localhost:3333/api/roles/crud';
 
 /**
  * Función base para llamadas a API de roles
@@ -11,11 +12,15 @@ async function callRolesApi(processType, body, dbServer) {
   console.log("📦 Enviando body a API:", JSON.stringify(body, null, 2));
 
   try {
-    const url = `${API_BASE_ROLES}?ProcessType=${processType}&LoggedUser=AGUIZARE&DBServer=${dbServer}`;
+    const url = `${API_BASE_ROLES}?ProcessType=${processType}&LoggedUser=FRONTEND&DBServer=${dbServer}`;
+
+    // Aseguramos la forma esperada por el backend: { "rol": { ... } }
+    const payload = (body && typeof body === 'object' && body.hasOwnProperty('rol')) ? body : { rol: body || {} };
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     });
     if (!response.ok) {
       throw new Error(`Error HTTP: ${response.status}`);
@@ -90,7 +95,38 @@ export async function deletePrivilegeFromProcess(roleId, processId, privilegeId,
 export async function fetchRolesData(dbServer) {
   try {
     const data = await callRolesApi('getAll', {}, dbServer);
-    const dataRes = data.data?.[0]?.dataRes || [];
+    console.log('📦 fetchRolesData - respuesta cruda:', data);
+
+    // Intentamos extraer la lista de roles de varias estructuras posibles
+    let dataRes = [];
+
+    // Posibles rutas comunes en tu backend / Fiori
+    if (data?.data?.[0]?.dataRes) dataRes = data.data[0].dataRes;
+    else if (data?.value?.[0]?.data?.[0]?.dataRes) dataRes = data.value[0].data[0].dataRes;
+    else if (data?.value?.[0]?.dataRes) dataRes = data.value[0].dataRes;
+    else if (data?.dataRes) dataRes = data.dataRes;
+    else if (Array.isArray(data)) dataRes = data;
+
+    // Si no encontramos en las rutas anteriores, buscamos recursivamente
+    if ((!dataRes || dataRes.length === 0) && typeof data === 'object') {
+      const seen = new Set();
+      const queue = [data];
+      while (queue.length && dataRes.length === 0) {
+        const node = queue.shift();
+        if (!node || typeof node !== 'object' || seen.has(node)) continue;
+        seen.add(node);
+        for (const key of Object.keys(node)) {
+          const val = node[key];
+          if (Array.isArray(val) && val.length > 0 && val[0] && (val[0].ROLEID || val[0].ROLENAME)) {
+            dataRes = val;
+            break;
+          }
+          if (typeof val === 'object') queue.push(val);
+        }
+      }
+    }
+
+    dataRes = dataRes || [];
 
     // Roles básicos
     const roles = dataRes.map(role => ({
@@ -138,4 +174,32 @@ export async function fetchRolesData(dbServer) {
     console.error('Error fetching roles data:', error);
     return;
   }
+}
+
+/**
+ * Crea un nuevo rol. Ajusta `processType` si tu backend espera otro valor.
+ * @param {object} roleBody
+ * @param {string} dbServer
+ */
+export async function createRole(roleBody, dbServer) {
+  return callRolesApi('postRol', roleBody, dbServer);
+}
+
+/**
+ * Actualiza un rol existente. Ajusta `processType` según sea necesario.
+ * @param {object} roleBody
+ * @param {string} dbServer
+ */
+export async function updateRole(roleBody, dbServer) {
+  // El backend espera 'updateOne' para actualizar un rol
+  return callRolesApi('updateOne', roleBody, dbServer);
+}
+
+/**
+ * Elimina un rol (hard delete). Ajusta `processType` si tu backend usa otro.
+ * @param {object} roleBody
+ * @param {string} dbServer
+ */
+export async function deleteRole(roleBody, dbServer) {
+  return callRolesApi('deleteRol', roleBody, dbServer);
 }

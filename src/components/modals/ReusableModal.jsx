@@ -91,7 +91,7 @@ const ReusableModal = ({
             const initialFormData = {};
             fields.forEach(field => {
                 const value =
-                    getNestedValue(initialData, field.name) ??
+                        getNestedValue(initialData, field.name) ??
                     field.default ??
                     (field.type === 'checkbox' ? false : '');
                 setNestedValue(initialFormData, field.name, value);
@@ -105,7 +105,7 @@ const ReusableModal = ({
                 console.log(sociedades);
             });
         }
-    }, [open, fields]);
+    }, [open, fields, initialData]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
     const handleCompanyChange = (selectedCompanyId) => {
@@ -303,7 +303,9 @@ const ReusableModal = ({
             );
         }
 
-        switch (field.type) {
+        const fieldType = field.type || 'text';
+
+        switch (fieldType) {
             case 'text':
             case 'email':
             case 'number':
