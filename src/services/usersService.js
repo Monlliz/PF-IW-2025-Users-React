@@ -141,6 +141,7 @@ export const getSociedades = async () =>{
 
         const data = await response.json();
         const filterData = data.data[0]?.dataRes|| [];
+        console.log(filterData);
         
         return filterData;
         

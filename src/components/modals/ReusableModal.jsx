@@ -101,30 +101,62 @@ const ReusableModal = ({
             setErrors({});
 
             // 2. Llamada a API y Configuración de Edición
+           // 2. Cargar las sociedades y FILTRAR IDs no numéricos
             getSociedades().then((res) => {
-                const listaSociedades = res || [];
+                const rawList = res || [];
+
+                // Regex que permite SOLO números (del 0 al 9)
+                // ^ = inicio, \d = digito, + = uno o más, $ = fin
+                const soloNumerosRegex = /^\d+$/;
+
+                const listaSociedades = rawList.reduce((acc, sociedad) => {
+                    // --- PASO 1: Validar ID de la Sociedad ---
+                    // Convertimos a String para evaluar el regex de forma segura
+                    const idSociedadStr = String(sociedad.IDVALOR || "");
+
+                    // Si NO pasa la prueba (tiene letras o es vacío), la saltamos
+                    if (!soloNumerosRegex.test(idSociedadStr)) {
+                        return acc; 
+                    }
+
+                    // --- PASO 2: Validar IDs de los Cedis (Hijos) ---
+                    // Filtramos el arreglo de hijos bajo la misma regla
+                    const hijosValidos = (sociedad.hijos || []).filter(cedi => {
+                        const idCediStr = String(cedi.IDVALOR || "");
+                        return soloNumerosRegex.test(idCediStr);
+                    });
+
+                    // --- PASO 3: Guardar la sociedad limpia ---
+                    // Agregamos la sociedad válida con su nueva lista de hijos filtrados
+                    acc.push({
+                        ...sociedad,
+                        hijos: hijosValidos
+                    });
+
+                    return acc;
+                }, []);
+                console.log(listaSociedades);
                 setSociedades(listaSociedades);
 
-                // --- LÓGICA PARA MODO EDICIÓN ---
-                // Obtenemos el ID de la compañía que viene en los datos del usuario
+                // --- LÓGICA DE EDICIÓN (Con la lista ya filtrada) ---
                 const initialCompanyId = getNestedValue(initialData, "COMPANYID");
                 
                 if (initialCompanyId) {
-                    // Buscamos esa compañía en la lista (usando == para evitar problemas de tipo)
+                    // Buscamos usando == por si uno es string y el otro number
                     const sociedadEncontrada = listaSociedades.find(s => s.IDVALOR == initialCompanyId);
                     
-                    // Si existe y tiene hijos, llenamos la lista de CEDIs inmediatamente
+                    
                     if (sociedadEncontrada && sociedadEncontrada.hijos) {
                         setCedisDisponibles(sociedadEncontrada.hijos);
                     }
                 } else {
-                    // Si es modo crear, limpiar
                     setCedisDisponibles([]);
                 }
+        
             });
         }
     // IMPORTANTE: Agregamos 'initialData' a las dependencias para detectar el usuario a editar
-    }, [open, fields, initialData]);
+    }, [open, fields]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
     const handleCompanyChange = (selectedCompanyId) => {
