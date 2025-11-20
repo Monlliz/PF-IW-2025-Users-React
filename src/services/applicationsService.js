@@ -1,10 +1,9 @@
-
 /**
  * Fetches all applications and their privilege-related data from the API
  * @param {string} dbServer - The database server to use
  * @returns {Promise<{applications: Array, views: Array, processesMap: Object, privilegesMap: Object}>}
  */
-const API_BASE = 'http://localhost:3333/api/application/crud';
+const API_BASE = 'https://gadev-usuarios.onrender.com/api/application/crud';
 
 /**
  * Función base para hacer llamadas a la API
@@ -84,6 +83,66 @@ export async function deleteHardProcess(appId, viewId, processId, dbServer) {
   }, dbServer);
 }
 
+/**
+ * Agrega un nuevo privilegio a un proceso
+ * @param {string} appId - ID de la aplicación
+ * @param {string} viewId - ID de la vista
+ * @param {string} processId - ID del proceso
+ * @param {object} privilegeData - Datos del privilegio a agregar
+ * @param {string} dbServer - Servidor de base de datos
+ */
+export async function addPrivilege(appId, viewId, processId, privilegeData, dbServer) {
+  return callApi('addPrivilege', { 
+    appId, 
+    viewId, 
+    processId, 
+    data: {privilegeId: privilegeData.PRIVILEGEID} 
+  }, dbServer);
+}
+
+/**
+ * Elimina un privilegio permanentemente
+ * @param {string} appId - ID de la aplicación
+ * @param {string} viewId - ID de la vista
+ * @param {string} processId - ID del proceso
+ * @param {string} privilegeId - ID del privilegio
+ * @param {string} dbServer - Servidor de base de datos
+ */
+export async function deleteHardPrivilege(appId, viewId, processId, privilegeId, dbServer) {
+  return callApi('deleteHardPrivilege', {
+    appId,
+    viewId,
+    processId,
+    data: {privilegeId}
+  }, dbServer);
+}
+
+/**
+ * Crea una nueva aplicación llamando a ambas APIs: la de aplicaciones y la de etiquetas
+ * @param {object} appData - Datos de la aplicación {APPID, NAME, DESCRIPTION}
+ * @param {string} dbServer - Servidor de base de datos
+ * @param {string} loggedUser - Usuario logueado
+ * @returns {Promise<{appResult: any, labelResult: any}>}
+ */
+export async function createApplication(appData, dbServer, loggedUser = 'AGUIZARE') {
+  try {
+    // Llamar a la primera API para crear la aplicación
+    const appResult = await callApi('createApp', { data: appData }, dbServer);
+
+    // Llamar a la segunda API para agregar la etiqueta
+    const labelResult = await createLabel({
+      idetiqueta: 'IdAplicaciones',
+      idvalor: appData.APPID,
+      valor: appData.NAME
+    }, dbServer, loggedUser);
+
+    return { appResult, labelResult };
+  } catch (error) {
+    console.error('Error creando aplicación:', error);
+    throw error;
+  }
+}
+
 export async function fetchPrivilegesData(dbServer) {
   try {
     const data = await callApi('getAplications', {}, dbServer);
@@ -137,7 +196,7 @@ export async function fetchPrivilegesData(dbServer) {
                 Descripcion: priv.PRIVILEGEID // Using ID as description until API provides it
               }));
             }
-            
+            console.log('Mapped process:', pid, 'for view:', viewId, 'in app:', appId);
             return {
               PROCESSID: pid,
               Descripcion: p.description || "Sin descripcion",
@@ -177,7 +236,7 @@ export async function fetchPrivilegesData(dbServer) {
  */
 async function fetchLabelsFromApi(dbServer, loggedUser = 'MIGUELLOPEZ') {
   try {
-    const url = `http://localhost:3034/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+    const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
     const resp = await fetch(url, { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
@@ -285,7 +344,7 @@ export async function fetchPrivileges(dbServer) {
  */
 export async function createLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
 
-  const url = `http://localhost:3034/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
 
   const body = {
     operations: [
@@ -318,6 +377,151 @@ export async function createLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
     return json;
   } catch (error) {
     console.error('createLabel error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a label (view/process/privilege) using the unified Labels API.
+ * Reusable: pass the `IDETIQUETA` you need (e.g. 'IdVistas', 'IdProcesos', 'IdPrivilegios').
+ * @param {{idetiqueta: string, idvalor: string, valor: string, alias?: string}} label
+ * @param {string} dbServer
+ * @param {string} loggedUser
+ * @returns {Promise<any>} API response
+ */
+export async function updateLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+
+  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+
+  const body = {
+    operations: [
+      {
+        collection: 'values',
+        action: 'UPDATE',
+        payload: {
+          id: label.idvalor,
+          updates: {
+            VALOR: label.valor,
+            ALIAS: label.alias || label.idvalor,
+            id: label.idvalor
+          }
+        }
+      }
+    ]
+  };
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Labels API error ${resp.status}: ${text}`);
+    }
+
+    const json = await resp.json();
+    return json;
+  } catch (error) {
+    console.error('updateLabel error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a label (view/process/privilege) using the unified Labels API.
+ * Reusable: pass the `IDETIQUETA` and `IDVALOR` you need.
+ * @param {{idetiqueta: string, idvalor: string}} label
+ * @param {string} dbServer
+ * @param {string} loggedUser
+ * @returns {Promise<any>} API response
+ */
+export async function deleteLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+
+  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+
+  const body = {
+    operations: [
+      {
+        collection: 'values',
+        action: 'DELETE',
+        payload: {
+          id: label.idvalor,
+          IDVALOR: label.idvalor
+        }
+      }
+    ]
+  };
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Labels API error ${resp.status}: ${text}`);
+    }
+
+    const json = await resp.json();
+    return json;
+  } catch (error) {
+    console.error('deleteLabel error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza una aplicación llamando a ambas APIs: la de aplicaciones y la de etiquetas
+ * @param {string} appId - ID de la aplicación
+ * @param {object} data - Datos a actualizar
+ * @param {string} dbServer - Servidor de base de datos
+ * @returns {Promise<{appResult: any, labelResult: any}>}
+ */
+export async function updateApplication(appId, data, dbServer) {
+  try {
+    // Llamar a la primera API para actualizar la aplicación
+    const appResult = await callApi('updateApp', { appId, data }, dbServer);
+
+    // Llamar a la segunda API para actualizar la etiqueta
+    const labelResult = await updateLabel({
+      idetiqueta: 'IdAplicaciones',
+      idvalor: appId,
+      valor: data.NAME || data.name
+    }, dbServer);
+
+    return { appResult, labelResult };
+  } catch (error) {
+    console.error('Error actualizando aplicación:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina una aplicación permanentemente llamando a ambas APIs: la de aplicaciones y la de etiquetas
+ * @param {string} appId - ID de la aplicación
+ * @param {string} dbServer - Servidor de base de datos
+ * @param {string} loggedUser - Usuario logueado
+ * @returns {Promise<{appResult: any, labelResult: any}>}
+ */
+export async function deleteHardApplication(appId, dbServer, loggedUser = 'MIGUELLOPEZ') {
+  try {
+    // Llamar a la primera API para eliminar la aplicación
+    const appResult = await callApi('deleteHardApp', { appId }, dbServer);
+
+    // Llamar a la segunda API para eliminar la etiqueta
+    const labelResult = await deleteLabel({
+      idetiqueta: 'IdAplicaciones',
+      idvalor: appId
+    }, dbServer, loggedUser);
+
+    return { appResult, labelResult };
+  } catch (error) {
+    console.error('Error eliminando aplicación:', error);
     throw error;
   }
 }
