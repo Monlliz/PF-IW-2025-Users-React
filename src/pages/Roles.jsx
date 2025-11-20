@@ -14,7 +14,7 @@ import {
   fetchAllRolesAndApps,
   createRole,
   updateRole,
-  deleteHardRole
+  deleteRole
 } from "../services/rolesServices";
 import { createApplication, updateApplication, deleteHardApplication } from "../services/applicationsService";
 
@@ -802,7 +802,7 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
         onClose={() => setShowEditRol(false)}
         title="Editar Rol"
         fields={[
-          { label: 'ID de Rol', name: 'ROLEID', type: 'text', required: true, disable: true },
+          { label: 'ID de Rol', name: 'ROLEID', type: 'text', required: true, disabled: true },
           { label: 'Nombre de Rol', name: 'ROLENAME', type: 'text', required: true },
           { label: 'Descripción', name: 'DESCRIPTION', type: 'text', required: false }
         ]}
@@ -853,7 +853,7 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
         showCloseButton={true}
         onButtonClick={async () => {
           try {
-            await deleteHardRole(itemToDeleteRol.ROLEID, dbServer);
+            await deleteRole(itemToDeleteRol.ROLEID, dbServer);
             await fetchAllData(); // Refresh the data
             setShowConfirmRol(false);
             setItemToDeleteRol(null);
@@ -898,7 +898,7 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
         onClose={() => setShowEditAplicacion(false)}
         title="Editar Aplicación"
         fields={[
-          { label: 'ID de Aplicación', name: 'APPID', type: 'text', required: true, disable: true },
+          { label: 'ID de Aplicación', name: 'APPID', type: 'text', required: true, disabled: true },
           { label: 'Nombre de Aplicación', name: 'NAMEAPP', type: 'text', required: true }
         ]}
         initialData={editingAplicacion}
