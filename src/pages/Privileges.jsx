@@ -1,3 +1,4 @@
+// Importaciones necesarias para el componente
 import React, { useState, useRef, useEffect, useContext } from "react";
 import AlertModal from "../components/modals/AlertModal";
 import ReusableModal from "../components/modals/ReusableModal";
@@ -38,6 +39,9 @@ function SplitterLayout({
   const dragging = useRef(false);
   const splitterWidth = 8;
 
+  /**
+   * Inicia el arrastre del splitter.
+   */
   const handleMouseDown = () => {
     dragging.current = true;
     document.body.style.cursor = "col-resize";
@@ -56,6 +60,9 @@ function SplitterLayout({
     setLeftWidth(`${newWidth}%`);
   };
 
+  /**
+   * Finaliza el arrastre del splitter.
+   */
   const handleMouseUp = () => {
     dragging.current = false;
     document.body.style.cursor = "";
@@ -125,94 +132,149 @@ function SplitterLayout({
    COMPONENTE PRINCIPAL
 =========================================================*/
 export default function PrivilegesLayout() {
-  // Application state
+  // Estados de la aplicación
+  // Lista de aplicaciones disponibles cargadas desde la API
   const [applications, setApplications] = useState([]);
+  // Aplicación actualmente seleccionada por el usuario
   const [selectedApp, setSelectedApp] = useState(null);
+  // Indicador de carga para las aplicaciones (actualmente no usado, pero reservado para futuras implementaciones)
   const [appLoading, setAppLoading] = useState(true);
   
-  // Data states
+  // Estados de datos
+  // Lista de vistas disponibles obtenidas desde la API de catálogo
   const [views, setViews] = useState([]);
-  const [existingViews, setExistingViews] = useState([]); // Vistas con APPID del payload general
+  // Vistas existentes asignadas a aplicaciones desde el payload general de la API
+  const [existingViews, setExistingViews] = useState([]);
+  // Vistas filtradas y ordenadas para mostrar en la tabla
   const [filteredViews, setFilteredViews] = useState([]);
+  // Vista actualmente seleccionada por el usuario
   const [selectedView, setSelectedView] = useState(null);
-  const [processes, setProcesses] = useState([]); // Procesos desde API externa
-  const [existingProcesses, setExistingProcesses] = useState([]); // Procesos provenientes del payload general
+  // Lista de procesos disponibles obtenidos desde la API de catálogo
+  const [processes, setProcesses] = useState([]);
+  // Procesos existentes asignados desde el payload general
+  const [existingProcesses, setExistingProcesses] = useState([]);
+  // Procesos filtrados y ordenados para mostrar en la tabla
   const [filteredProcesses, setFilteredProcesses] = useState([]);
+  // Proceso actualmente seleccionado por el usuario
   const [selectedProcess, setSelectedProcess] = useState(null);
+  // Privilegios filtrados para mostrar en la tabla
   const [filteredPrivileges, setFilteredPrivileges] = useState([]);
+  // Lista de privilegios disponibles obtenidos desde la API de catálogo
   const [privileges, setPrivileges] = useState([]);
 
-  // Maps loaded from single API route (fallback to the simulated constants)
+  // Mapas cargados desde una sola ruta de API (fallback a constantes simuladas)
+  // Mapa de procesos asignados por vista (clave: VIEWSID, valor: lista de procesos)
   const [processesMap, setProcessesMap] = useState({});
+  // Mapa de privilegios asignados por proceso (clave: PROCESSID, valor: lista de privilegios)
   const [privilegesMap, setPrivilegesMap] = useState({});
 
-  // API data loading states
+  // Estados de carga y error de API
+  // Contexto para obtener el servidor de base de datos
   const { dbServer } = useContext(DbContext);
+  // Indicador de carga mientras se obtienen datos de la API
   const [loadingData, setLoadingData] = useState(false);
+  // Mensaje de error si ocurre un problema al cargar datos
   const [loadError, setLoadError] = useState(null);
 
-  // Hover states and additional modal states for Views
+  // Estados de hover y modales adicionales para Vistas
+  // Estados de hover para botones de acciones en vistas
   const [isHoveredAddView, setHoveredAddView] = useState(false);
   const [isHoveredInfoView, setHoveredInfoView] = useState(false);
   const [isHoveredEditView, setHoveredEditView] = useState(false);
   const [isHoveredDeleteView, setHoveredDeleteView] = useState(false);
+  // Estados para mostrar modales de edición y confirmación para vistas
   const [showEditView, setShowEditView] = useState(false);
   const [showConfirmView, setShowConfirmView] = useState(false);
   const [isViewDetailModalOpen, setIsViewDetailModalOpen] = useState(false);
+  // Datos de la vista seleccionada para detalles
   const [selectedViewDetails, setSelectedViewDetails] = useState(null);
+  // Vista siendo editada
   const [editingView, setEditingView] = useState(null);
+  // Vista a eliminar
   const [itemToDeleteView, setItemToDeleteView] = useState(null);
 
-  // Hover states and modal states for Processes
+  // Estados de hover y modales para Procesos
+  // Estados de hover para botones de acciones en procesos
   const [isHoveredAddProcess, setHoveredAddProcess] = useState(false);
   const [isHoveredInfoProcess, setHoveredInfoProcess] = useState(false);
   const [isHoveredEditProcess, setHoveredEditProcess] = useState(false);
   const [isHoveredDeleteProcess, setHoveredDeleteProcess] = useState(false);
+  // Estados para mostrar modales de edición y confirmación para procesos
   const [showEditProcess, setShowEditProcess] = useState(false);
   const [showConfirmProcess, setShowConfirmProcess] = useState(false);
   const [isProcessDetailModalOpen, setIsProcessDetailModalOpen] = useState(false);
+  // Datos del proceso seleccionado para detalles
   const [selectedProcessDetails, setSelectedProcessDetails] = useState(null);
+  // Proceso siendo editado
   const [editingProcess, setEditingProcess] = useState(null);
 
 
-  // Hover states and modal states for Privileges
+  // Estados de hover y modales para Privilegios
+  // Estados de hover para botones de acciones en privilegios (no implementados aún)
   const [isHoveredAddPriv, setHoveredAddPriv] = useState(false);
   const [isHoveredInfoPriv, setHoveredInfoPriv] = useState(false);
   const [isHoveredEditPriv, setHoveredEditPriv] = useState(false);
   const [isHoveredDeletePriv, setHoveredDeletePriv] = useState(false);
+  // Estados para mostrar modales de edición y confirmación para privilegios (no implementados)
   const [showEditPriv, setShowEditPriv] = useState(false);
   const [showConfirmPriv, setShowConfirmPriv] = useState(false);
   const [isPrivDetailModalOpen, setIsPrivDetailModalOpen] = useState(false);
+  // Datos del privilegio seleccionado para detalles
   const [selectedPrivDetails, setSelectedPrivDetails] = useState(null);
+  // Privilegio siendo editado
   const [editingPriv, setEditingPriv] = useState(null);
+  // Privilegio a eliminar
   const [itemToDeletePriv, setItemToDeletePriv] = useState(null);
+  // Privilegio actualmente seleccionado
   const [selectedPrivilege, setSelectedPrivilege] = useState(null);
 
-  // Checkbox states
+  // Estados de checkboxes
+  // Estados de selección (checked) para vistas asignadas
   const [checkedViews, setCheckedViews] = useState({});
+  // Estados de selección (checked) para procesos asignados
   const [checkedProcesses, setCheckedProcesses] = useState({});
+  // Estados de selección (checked) para privilegios asignados
   const [checkedPrivileges, setCheckedPrivileges] = useState({});
 
-  // View filtering and sorting states
-  const [viewFilterType, setViewFilterType] = useState('all'); // 'all' o 'assigned'
-  const [viewSortType, setViewSortType] = useState('name'); // 'name' o 'assigned-first'
+  // Booleans calculados para renderizado condicional
+  // Indica si hay vistas seleccionadas (para habilitar acciones)
+  const hasCheckedViews = Object.values(checkedViews).some(checked => checked);
+  // Indica si hay procesos seleccionados (para habilitar acciones)
+  const hasCheckedProcesses = Object.values(checkedProcesses).some(checked => checked);
 
-  // Process filtering and sorting states
-  const [processFilterType, setProcessFilterType] = useState('all'); // 'all' o 'assigned'
-  const [processSortType, setProcessSortType] = useState('name'); // 'name' o 'assigned-first'
+  // Estados de filtrado y ordenamiento para vistas
+  // Tipo de filtro para vistas: 'all' (todas) o 'assigned' (solo asignadas)
+  const [viewFilterType, setViewFilterType] = useState('all');
+  // Tipo de ordenamiento para vistas: 'name' (por nombre) o 'assigned-first' (asignadas primero)
+  const [viewSortType, setViewSortType] = useState('name');
 
-  // Privilege filtering and sorting states
-  const [privilegeFilterType, setPrivilegeFilterType] = useState('all'); // 'all' o 'assigned'
-  const [privilegeSortType, setPrivilegeSortType] = useState('name'); // 'name' o 'assigned-first'
+  // Estados de filtrado y ordenamiento para procesos
+  // Tipo de filtro para procesos: 'all' (todos) o 'assigned' (solo asignados)
+  const [processFilterType, setProcessFilterType] = useState('all');
+  // Tipo de ordenamiento para procesos: 'name' (por nombre) o 'assigned-first' (asignados primero)
+  const [processSortType, setProcessSortType] = useState('name');
 
+  // Estados de filtrado y ordenamiento para privilegios
+  // Tipo de filtro para privilegios: 'all' (todos) o 'assigned' (solo asignados)
+  const [privilegeFilterType, setPrivilegeFilterType] = useState('all');
+  // Tipo de ordenamiento para privilegios: 'name' (por nombre) o 'assigned-first' (asignados primero)
+  const [privilegeSortType, setPrivilegeSortType] = useState('name');
+
+  // Consulta de búsqueda para privilegios (no implementada aún)
   const [privilegeSearchQuery, setPrivilegeSearchQuery] = useState('');
+  // Privilegios actuales (no implementada aún)
   const [currentPrivileges, setCurrentPrivileges] = useState([]);
-  // Modales
+  // Estados para modales genéricos
+  // Tipo de modal abierto: 'create', 'edit', 'delete'
   const [modalType, setModalType] = useState(null);
+  // Contexto del modal: 'view', 'process', 'privilege'
   const [modalContext, setModalContext] = useState(null);
+  // Datos asociados al modal
   const [modalData, setModalData] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // {context, data}
+  // Confirmación de eliminación: {context, data}
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  // Función para cerrar modales y resetear estados relacionados
   const closeModal = () => {
     setModalType(null);
     setModalContext(null);
@@ -394,7 +456,10 @@ export default function PrivilegesLayout() {
     setFiltered(f);
   };
 
-  // Aplicar filtrado y ordenamiento a las vistas
+  /**
+   * Aplica filtrado y ordenamiento a la lista de vistas.
+   * Filtra por asignadas si corresponde y ordena según el tipo seleccionado.
+   */
   const applyViewFiltersAndSort = () => {
     // Si no hay aplicación seleccionada, no mostrar nada
     if (!selectedApp) {
@@ -423,7 +488,7 @@ export default function PrivilegesLayout() {
     setFilteredViews(result);
   };
 
-  // Efecto para aplicar filtros y ordenamiento cuando cambien
+  // Efecto para aplicar filtros y ordenamiento a las vistas cuando cambien los estados relevantes
   useEffect(() => {
     applyViewFiltersAndSort();
   }, [viewFilterType, viewSortType, checkedViews, views, selectedApp]);
@@ -465,7 +530,10 @@ export default function PrivilegesLayout() {
     setFilteredViews(result);
   };
 
-  // Aplicar filtrado y ordenamiento a los procesos
+  /**
+   * Aplica filtrado y ordenamiento a la lista de procesos.
+   * Filtra por asignados si corresponde y ordena según el tipo seleccionado.
+   */
   const applyProcessFiltersAndSort = () => {
     // Si no hay vista seleccionada, no mostrar nada
     if (!selectedView) {
@@ -494,7 +562,7 @@ export default function PrivilegesLayout() {
     setFilteredProcesses(result);
   };
 
-  // Efecto para cargar procesos y marcar checkboxes cuando cambia la vista seleccionada
+  // Efecto para cargar y filtrar procesos, y marcar checkboxes cuando cambia la vista seleccionada
   useEffect(() => {
     if (!selectedView || !selectedApp) {
       setFilteredProcesses([]);
@@ -592,7 +660,10 @@ export default function PrivilegesLayout() {
     setFilteredProcesses(result);
   };
 
-  // Cargar datos
+  /**
+   * Carga todos los datos necesarios desde las APIs.
+   * Obtiene aplicaciones, vistas, procesos, privilegios y mapas de asignaciones.
+   */
   const loadAllData = async () => {
     setLoadingData(true);
     setLoadError(null);
@@ -663,11 +734,12 @@ export default function PrivilegesLayout() {
     }
   };
 
+  // Efecto para cargar datos iniciales al montar el componente o cambiar el servidor
   useEffect(() => {
     loadAllData();
   }, [dbServer]); // Recargar cuando cambie el servidor
 
-  // Recalcular checkboxes cuando cambia la aplicación seleccionada
+  // Efecto para recalcular los checkboxes de vistas cuando cambia la aplicación seleccionada
   useEffect(() => {
     if (!selectedApp || views.length === 0) {
       setCheckedViews({});
@@ -811,7 +883,10 @@ export default function PrivilegesLayout() {
     }
   };
 
-  // Handler genérico para submit de los modales de eliminación (view/process/privilege)
+  /**
+   * Manejador genérico para el submit de modales de eliminación.
+   * Elimina una vista o proceso mediante la API de etiquetas.
+   */
   const handleDeleteModalSubmit = async () => {
     try {
       if (!modalContext || !modalData) return closeModal();
@@ -1189,36 +1264,35 @@ export default function PrivilegesLayout() {
               </FlexBox>
             </Toolbar>
 
-            <AnalyticalTable
-              data={filteredProcesses}
-              columns={[
-                { 
-                  Header: "Asignado", 
-                  accessor: "asignado",
-                  Cell: (row) => (
-                    <CheckBox
-                      checked={checkedProcesses[row.row.original.PROCESSID] || false}
-                      onChange={(e) => handleProcessCheckBoxChange(row.row.original.PROCESSID, e.target.checked)}
-                    />
-                  )
-                },
-                { Header: "PROCESSID", accessor: "PROCESSID" },
-                { Header: "Descripción", accessor: "Descripcion" }
-              ]}
-              onRowClick={handleProcessSelect}
-              visibleRows={8}
-            />
+              <AnalyticalTable
+                data={selectedView && checkedViews[selectedView.VIEWSID] ? filteredProcesses : []}
+                columns={[
+                  {
+                    Header: "Asignado",
+                    accessor: "asignado",
+                    Cell: (row) => (
+                      <CheckBox
+                        checked={checkedProcesses[row.row.original.PROCESSID] || false}
+                        onChange={(e) => handleProcessCheckBoxChange(row.row.original.PROCESSID, e.target.checked)}
+                      />
+                    )
+                  },
+                  { Header: "PROCESSID", accessor: "PROCESSID" },
+                  { Header: "Descripción", accessor: "Descripcion" }
+                ]}
+                onRowClick={handleProcessSelect}
+                visibleRows={8}
+              />
           </div>
 
           {/* Panel derecho: Privilegios */}
           <div>
-
-            <AnalyticalTable style={{paddingTop: "50%"}} 
-              data={filteredPrivileges.map(priv => ({
+            <AnalyticalTable style={{paddingTop: "50%"}}
+              data={selectedProcess && checkedProcesses[selectedProcess.PROCESSID] ? filteredPrivileges.map(priv => ({
                 ...priv,
                 ViewID: selectedView?.VIEWSID || '',
                 ProcessID: selectedProcess?.PROCESSID || ''
-              }))}
+              })) : []}
               columns={[
                 {
                   Header: "Asignado",
