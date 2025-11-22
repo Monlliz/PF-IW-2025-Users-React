@@ -13,7 +13,8 @@ import {
     Text,
     MessageBox,
     ComboBox,
-    ComboBoxItem
+    ComboBoxItem,
+    DatePicker
 } from '@ui5/webcomponents-react';
 
 // --- Helpers para manejar objetos anidados ---
@@ -435,6 +436,25 @@ const ReusableModal = ({
                                 </Option>
                             ))}
                         </Select>
+                        {hasError && (
+                            <Text className={styles.ErrorTextModal}>
+                                {hasError}
+                            </Text>
+                        )}
+                    </div>
+                );
+                
+            case 'date':
+                return (
+                    <div key={field.name} className={hasError ? styles.fieldWrapperErrorModal : styles.fieldWrapperModal}>
+                        <Label required={field.required}>{field.label}</Label>
+                        <DatePicker
+                            value={value || ''}
+                            onChange={(e) => handleInputChange(field.name, e.target.value)}
+                            placeholder={field.placeholder}
+                            disabled={field.disabled || false}
+                            style={{ width: '100%' }}
+                        />
                         {hasError && (
                             <Text className={styles.ErrorTextModal}>
                                 {hasError}

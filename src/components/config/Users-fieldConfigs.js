@@ -102,6 +102,19 @@ export const userCreationFields = [
   },
   
   {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "Foto de Perfil (URL)",
+    placeholder: "https://...",
+    maxLength: 512,
+  },
+  {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Cumpleaños",
+    required: false,
+  },
+  {
     name: "DETAIL_ROW.ACTIVED",
     type: "checkbox",
     label: "Usuario Activo",
@@ -214,6 +227,19 @@ export const userEditFields = [
     //maxLength: 10,
     pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([\\/\\w .-]*)*\\/?$",
     errorMessage: "Ingrese una URL válida (ej. http://example.com/foto.jpg)."
+  },
+  {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "Foto de Perfil (URL)",
+    placeholder: "https://...",
+    maxLength: 512,
+  },
+  {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Cumpleaños",
+    required: false,
   },
   {
     name: "DETAIL_ROW.ACTIVED",
