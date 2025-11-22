@@ -96,23 +96,9 @@ export const userCreationFields = [
     label: "URL de Foto de Perfil",
     placeholder: "http://example.com/foto.jpg",
     //required: true,
-    //maxLength: 10,
+    maxLength: 512,
     pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([\\/\\w .-]*)*\\/?$",
     errorMessage: "Ingrese una URL válida (ej. http://example.com/foto.jpg)."
-  },
-  
-  {
-    name: "PROFILE_PIC_URL",
-    type: "text",
-    label: "Foto de Perfil (URL)",
-    placeholder: "https://...",
-    maxLength: 512,
-  },
-  {
-    name: "BIRTHDATE",
-    type: "date",
-    label: "Fecha de Cumpleaños",
-    required: false,
   },
   {
     name: "DETAIL_ROW.ACTIVED",
@@ -224,22 +210,9 @@ export const userEditFields = [
     label: "URL de Foto de Perfil",
     placeholder: "http://example.com/foto.jpg",
     //required: true,
-    //maxLength: 10,
+    maxLength: 512,
     pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([\\/\\w .-]*)*\\/?$",
     errorMessage: "Ingrese una URL válida (ej. http://example.com/foto.jpg)."
-  },
-  {
-    name: "PROFILE_PIC_URL",
-    type: "text",
-    label: "Foto de Perfil (URL)",
-    placeholder: "https://...",
-    maxLength: 512,
-  },
-  {
-    name: "BIRTHDATE",
-    type: "date",
-    label: "Fecha de Cumpleaños",
-    required: false,
   },
   {
     name: "DETAIL_ROW.ACTIVED",

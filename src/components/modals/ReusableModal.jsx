@@ -443,25 +443,6 @@ const ReusableModal = ({
                         )}
                     </div>
                 );
-                
-            case 'date':
-                return (
-                    <div key={field.name} className={hasError ? styles.fieldWrapperErrorModal : styles.fieldWrapperModal}>
-                        <Label required={field.required}>{field.label}</Label>
-                        <DatePicker
-                            value={value || ''}
-                            onChange={(e) => handleInputChange(field.name, e.target.value)}
-                            placeholder={field.placeholder}
-                            disabled={field.disabled || false}
-                            style={{ width: '100%' }}
-                        />
-                        {hasError && (
-                            <Text className={styles.ErrorTextModal}>
-                                {hasError}
-                            </Text>
-                        )}
-                    </div>
-                );
 
             default:
                 return null;

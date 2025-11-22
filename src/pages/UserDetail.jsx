@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DbContext } from "../contexts/dbContext";
 import { getUserByIdService, unassignRoleService } from '../services/usersService.js';
+import {formatearFecha} from '../utils/formatos.js'
 import {
   Page,
   Bar,
@@ -126,7 +127,7 @@ export default function UserDetail() {
             header={
               <CardHeader
                 titleText={user.USERNAME || "Usuario sin nombre"}
-                subtitleText={`ID: ${user.USERID}`}
+                subtitleText={`ID de Empleado: ${user.EMPLOYEEID}`}
                 avatar={<Icon name="employee" />}
               />
             }
@@ -173,7 +174,7 @@ export default function UserDetail() {
               {/* FECHA DE CUMPLEAÑOS */}
               <FlexBox style={rowStyle}>
                 <Label style={labelStyle}>Fecha de Cumpleaños:</Label>
-                <Text>{user.BIRTHDATE ? new Date(user.BIRTHDATE).toLocaleDateString() : '-'}</Text>
+                <Text>{user.BIRTHDATE ? formatearFecha(user.BIRTHDATE) : '-'}</Text>
                 </FlexBox>
 
               {/* ROLES (Es un array en tu modelo) */}

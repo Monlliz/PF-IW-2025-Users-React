@@ -30,9 +30,8 @@ const userColumns = [
   { Header: "Correo Electrónico", accessor: "EMAIL" },
   { Header: "Número Telefónico", accessor: "PHONENUMBER" },
   { Header: "Extensión", accessor: "EXTENSION" },
-  { Header: "ID de Compañía", accessor: "COMPANYID" },
-  { Header: "ID de CEDI", accessor: "CEDIID" },
-  { Header: "ID de Empleado", accessor: "EMPLOYEEID" },
+  { Header: "Compañía", accessor: "COMPANYID" },
+  { Header: "CEDI", accessor: "CEDIID" },
   {
     Header: "Activo", accessor: "DETAIL_ROW.ACTIVED",
     Cell: ({ value }) => {
