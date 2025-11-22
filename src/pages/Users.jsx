@@ -1,11 +1,11 @@
 import styles from '../styles/Users.module.css';
 import ReusableModal from '../components/modals/ReusableModal';
 import { userEditFields, userCreationFields } from '../components/config/Users-fieldConfigs';
-// import AlertModal from '../components/modals/AlertModal'; // <-- No lo necesitamos porque iremos a otra página
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom'; // <--- IMPORTANTE: Para poder navegar
+import { useNavigate } from 'react-router-dom';
 import { getUsersAllService, createUserService, updateUserService, deleteUserService } from '../services/usersService.js';
 import { DbContext } from "../contexts/dbContext";
+import { formatearFecha } from '../utils/formatos.js'
 import {
   Page,
   Bar,
@@ -267,7 +267,7 @@ export default function Users() {
         filterable
         sortable
         loading={isLoading}
-        visibleRows={12}
+        visibleRows={14}
         noDataText="No se encontraron registros"
         header={
           <Toolbar className={styles.barTable}>
@@ -340,10 +340,6 @@ export default function Users() {
         submitButtonText="Guardar Cambios"
         initialData={editingUser}
       />
-
-      {/* NOTA: Eliminamos el AlertModal de aquí porque ahora
-          navegamos a una página nueva para ver los detalles.
-      */}
 
       <MessageBox
         open={showConfirmModal}

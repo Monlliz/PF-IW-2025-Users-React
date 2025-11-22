@@ -1,4 +1,5 @@
-import { data } from "@remix-run/router";
+
+import { formatearFechaParaInput } from '../utils/formatos';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 /**
@@ -27,7 +28,7 @@ async function callApi(processType, body, dbServer) {
             // Si el servidor responde con un error (4xx, 5xx), intentamos leer el cuerpo y mostrarlo
             const text = await response.text().catch(() => null);
             let errorData = null;
-            try { errorData = text ? JSON.parse(text) : null; } catch(e) { /* not json */ }
+            try { errorData = text ? JSON.parse(text) : null; } catch (e) { /* not json */ }
             console.error('🔴 usersService.callApi - error response body:', text || errorData);
             const serverMessage = errorData?.message || errorData?.value || text || `HTTP ${response.status}`;
             throw new Error(serverMessage);
@@ -39,7 +40,35 @@ async function callApi(processType, body, dbServer) {
         }
 
         const data = await response.json();
-        const filterData = data?.value?.[0]?.data?.[0]?.dataRes || [];
+        const responseData = data?.value?.[0]?.data?.[0]?.dataRes || [];
+
+        //Validamos que responseData sea una lista (Array) antes de intentar mapear
+       if (!Array.isArray(responseData)) {
+        
+        // Verificamos que sea un objeto real y no null
+        if (responseData && typeof responseData === 'object') {
+            
+            // AQUÍ ESTÁ LA MAGIA: Devolvemos el objeto, pero con la fecha formateada
+            return {
+                ...responseData,
+                // Agregamos la propiedad formateada igual que haríamos en el map
+                BIRTHDATE: responseData.BIRTHDATE ? formatearFechaParaInput(responseData.BIRTHDATE) : ""
+            };
+        }
+
+        // Si no es array ni objeto (ej. un error o string), lo devolvemos tal cual
+        return responseData;
+    }
+
+        const filterData = responseData.map(usuario => {            
+            const fechaOriginal = usuario.BIRTHDATE;
+            const fechaLista = fechaOriginal ? formatearFechaParaInput(fechaOriginal) : "";
+
+            return {
+                ...usuario,
+                BIRTHDATE: fechaLista
+            };
+        });
         return filterData;
 
     } catch (error) {
@@ -54,16 +83,9 @@ async function callApi(processType, body, dbServer) {
  * @param {string} dbServer - El servidor de BD
  * @returns {Array} La lista de usuarios
  */
-export async function getUsersAllService (dbServer) {
+export async function getUsersAllService(dbServer) {
     const responseData = await callApi('getAll', {}, dbServer);
-
-    // Extrae la lista de usuarios de la ruta que encontramos
-    // Si responseData.value no existe o está vacío, usa '|| []' para evitar errores
-   // const userList = responseData?.value?.[0]?.data?.[0]?.dataRes || [];
-    
-    // Devuelve SOLAMENTE la lista de usuarios
     return responseData;
-
 };
 
 
@@ -73,7 +95,7 @@ export async function getUsersAllService (dbServer) {
  * @param {string} dbServer - El servidor de BD (mongo, azure)
  * @returns {object} El nuevo usuario creado (devuelto por el backend)
  */
-export async function createUserService (userData, dbServer) {
+export async function createUserService(userData, dbServer) {
     return await callApi('postUsuario', userData, dbServer);
 };
 
@@ -100,21 +122,21 @@ export const updateUserService = async (updatedUserData, dbServer) => {
  * ELIMINA (Real) un usuario existente.
  */
 export const deleteUserService = async (userId, dbServer) => {
-  const userPayload = {
-    USERID: userId
-  };
-  // Llama a la API 
-  const response = await callApi(
-    'deleteUsuario', 
-    userPayload,
-    dbServer,
+    const userPayload = {
+        USERID: userId
+    };
+    // Llama a la API 
+    const response = await callApi(
+        'deleteUsuario',
+        userPayload,
+        dbServer,
 
-  );
+    );
 
-  return response;
+    return response;
 };
 
-export const getSociedades = async () =>{
+export const getSociedades = async () => {
     try {
         const url = 'https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=getJerarquia&LoggedUser=MIGUELLOPEZ&DBServer=MongoDB&IDETIQUETA=SOCIEDAD';
 
@@ -140,12 +162,10 @@ export const getSociedades = async () =>{
         }
 
         const data = await response.json();
-        const filterData = data.data[0]?.dataRes|| [];
-        console.log(filterData);
-        
+        const filterData = data.data[0]?.dataRes || [];
         return filterData;
-        
-        
+
+
 
     } catch (error) {
         console.error(`Error en llamada API:`, error);
@@ -153,35 +173,35 @@ export const getSociedades = async () =>{
         throw error;
     }
 }
-export const getCedi = async (IDVALORSOCIEDAD,dataRes) =>{
-    
+export const getCedi = async (IDVALORSOCIEDAD, dataRes) => {
+
     // Validar que dataRes existe y es un array
     if (!dataRes || !Array.isArray(dataRes)) {
         console.error('dataRes no es un array válido:', dataRes);
         return [];
     }
-    
+
     const sociedad = dataRes.find(item => item.IDVALOR === IDVALORSOCIEDAD);
     const soFilter = sociedad && sociedad.hijos ? sociedad.hijos : [];
     console.log(soFilter);
-    
+
     return soFilter;
 }
 
 export async function getUserByIdService(userId, dbServer) {
     const body = { USERID: userId };
-    
+
     // 1. IMPORTANTE: Usamos 'getById' para evitar el error 500 "Proceso no reconocido"
     const responseData = await callApi('getById', body, dbServer);
 
     // 2. Verificación defensiva:
     // Si el backend (por SAP) devuelve un objeto directo, lo usamos.
     // Si por alguna razón devolviera un array, tomamos el primero.
-    
+
     if (Array.isArray(responseData)) {
         return responseData.length > 0 ? responseData[0] : null;
     }
-    
+
     // Si no es array, asumimos que es el objeto usuario directo
     return responseData;
 };

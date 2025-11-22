@@ -14,6 +14,8 @@ import Apps from './pages/Apps.jsx';
 import { Configuracion } from './pages/Configuracion.jsx';
 import UserDetail from './pages/UserDetail.jsx';
 
+//COmponentes 
+import BirthdaySurprise from './components/BirthdaySurprise.jsx';
 //css
 //import './index.css';
 
@@ -29,6 +31,7 @@ import { DbProvider } from './contexts/dbContext.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+  <BirthdaySurprise/>
     <ThemeProvider>
       <DbProvider>
       <BrowserRouter>

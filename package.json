@@ -15,9 +15,11 @@
     "@ui5/webcomponents-icons": "^2.0.0",
     "@ui5/webcomponents-react": "^2.0.0",
     "react": "^18.2.0",
+    "react-confetti": "^6.4.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
-    "react-split": "^2.0.14"
+    "react-split": "^2.0.14",
+    "react-use": "^17.6.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",

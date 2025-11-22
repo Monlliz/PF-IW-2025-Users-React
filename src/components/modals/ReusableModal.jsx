@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import styles from '../../styles/Components.module.css';
-import { getSociedades, getCedi } from '../../services/usersService';
+import { getSociedades } from '../../services/usersService';
 
 import {
     Button,
@@ -85,14 +85,14 @@ const ReusableModal = ({
      * Carga el formulario cuando se abre el modal.
      * Llena 'formData' con 'initialData' o los valores por defecto.
      */
-   // Cargar sociedades y configurar la cascada inicial
+    // Cargar sociedades y configurar la cascada inicial
     useEffect(() => {
         if (open) {
             // 1. Construir la data del formulario
             const initialFormData = {};
             fields.forEach(field => {
                 const value =
-                        getNestedValue(initialData, field.name) ??
+                    getNestedValue(initialData, field.name) ??
                     field.default ??
                     (field.type === 'checkbox' ? false : '');
                 setNestedValue(initialFormData, field.name, value);
@@ -101,7 +101,7 @@ const ReusableModal = ({
             setErrors({});
 
             // 2. Llamada a API y Configuración de Edición
-           // 2. Cargar las sociedades y FILTRAR IDs no numéricos
+            // 2. Cargar las sociedades y FILTRAR IDs no numéricos
             getSociedades().then((res) => {
                 const rawList = res || [];
 
@@ -116,7 +116,7 @@ const ReusableModal = ({
 
                     // Si NO pasa la prueba (tiene letras o es vacío), la saltamos
                     if (!soloNumerosRegex.test(idSociedadStr)) {
-                        return acc; 
+                        return acc;
                     }
 
                     // --- PASO 2: Validar IDs de los Cedis (Hijos) ---
@@ -135,27 +135,26 @@ const ReusableModal = ({
 
                     return acc;
                 }, []);
-                console.log(listaSociedades);
                 setSociedades(listaSociedades);
 
                 // --- LÓGICA DE EDICIÓN (Con la lista ya filtrada) ---
                 const initialCompanyId = getNestedValue(initialData, "COMPANYID");
-                
+
                 if (initialCompanyId) {
                     // Buscamos usando == por si uno es string y el otro number
                     const sociedadEncontrada = listaSociedades.find(s => s.IDVALOR == initialCompanyId);
-                    
-                    
+
+
                     if (sociedadEncontrada && sociedadEncontrada.hijos) {
                         setCedisDisponibles(sociedadEncontrada.hijos);
                     }
                 } else {
                     setCedisDisponibles([]);
                 }
-        
+
             });
         }
-    // IMPORTANTE: Agregamos 'initialData' a las dependencias para detectar el usuario a editar
+        
     }, [open, fields]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
@@ -266,8 +265,7 @@ const ReusableModal = ({
             setShowErrorAlert(true);
             return;
         }
-
-        // ¡Todo bien! Manda la data.
+        //¡Todo bien!
         onSubmit(formData);
         onClose();
     };
@@ -288,26 +286,26 @@ const ReusableModal = ({
                         placeholder="Selecciona o escribe una sociedad..."
                         style={{ width: '100%' }}
 
-                        // El 'value' es el TEXTO (VALOR) que corresponde al ID guardado
-                        value={sociedades.find(s => s.IDVALOR == value)?.VALOR || ""}
+                        // --- CORRECCIÓN EN VALUE ---
+                        // Construimos el mismo formato "VALOR (ID)" para que coincida con la lista
+                        value={(() => {
+                            // Usamos == por si el ID es número vs string
+                            const s = sociedades.find(item => item.IDVALOR == value);
+                            return s ? `${s.VALOR} (${s.IDVALOR})` : "";
+                        })()}
 
-                        // 'onChange' se dispara al presionar Enter o perder el foco
+                        // --- CORRECCIÓN EN ONCHANGE ---
                         onChange={(e) => {
-                            // Leemos el TEXTO que está en el input
                             const selectedText = e.target.value;
-
-                            // Buscamos la sociedad que coincida con ese texto
-                            const selectedSoc = sociedades.find(s => s.VALOR == selectedText);
-
-                            // Guardamos su IDVALOR (o un string vacío si no hay coincidencia)
+                            // Buscamos por el texto completo compuesto
+                            const selectedSoc = sociedades.find(s => `${s.VALOR} (${s.IDVALOR})` === selectedText);
                             handleCompanyChange(selectedSoc?.IDVALOR || "");
                         }}
                     >
-                        {/* Ya no hay <Option>, ahora es <ComboBoxItem> */}
                         {sociedades.map(s => (
                             <ComboBoxItem
                                 key={s.IDVALOR}
-                                text={s.VALOR} // La prop se llama 'text'
+                                text={`${s.VALOR} (${s.IDVALOR})`} // Formato visual
                             />
                         ))}
                     </ComboBox>
@@ -324,28 +322,25 @@ const ReusableModal = ({
                         placeholder={cedisDisponibles.length === 0 ? "Selecciona una sociedad primero" : "Selecciona o escribe un CEDI..."}
                         style={{ width: '100%' }}
 
-                        // El 'value' sigue siendo el TEXTO (VALOR) que coincide con el ID guardado
-                        value={cedisDisponibles.find(c => c.IDVALOR == value)?.VALOR || ""}
+                        // --- CORRECCIÓN EN VALUE ---
+                        value={(() => {
+                            const c = cedisDisponibles.find(item => item.IDVALOR == value);
+                            return c ? `${c.VALOR} (${c.IDVALOR})` : "";
+                        })()}
 
-                        // 'onChange' se dispara al perder el foco o presionar Enter
                         onChange={(e) => {
-                            // Leemos el TEXTO directamente del input
                             const selectedText = e.target.value;
-
-                            // Buscamos el CEDI que coincida con el texto
-                            const selectedCedi = cedisDisponibles.find(c => c.VALOR == selectedText);
-
-                            // Guardamos el IDVALOR (o un string vacío si no hay coincidencia)
+                            // Buscamos por el texto completo compuesto
+                            const selectedCedi = cedisDisponibles.find(c => `${c.VALOR} (${c.IDVALOR})` === selectedText);
                             handleInputChange("CEDIID", selectedCedi?.IDVALOR || "");
                         }}
 
                         disabled={cedisDisponibles.length === 0}
                     >
-                        {/* Cambiamos <Option> por <ComboBoxItem> */}
                         {cedisDisponibles.map(c => (
                             <ComboBoxItem
                                 key={c.IDVALOR}
-                                text={c.VALOR} // La prop se llama 'text'
+                                text={`${c.VALOR} (${c.IDVALOR})`} // Formato visual
                             />
                         ))}
                     </ComboBox>
@@ -360,6 +355,7 @@ const ReusableModal = ({
             case 'text':
             case 'email':
             case 'number':
+            case 'date':
             case 'password':
                 return (
                     <div key={field.name} className={hasError ? styles.fieldWrapperErrorModal : styles.fieldWrapperModal}>

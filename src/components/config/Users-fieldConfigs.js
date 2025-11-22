@@ -60,13 +60,22 @@ export const userCreationFields = [
     pattern: "^[0-9]*$",
     errorMessage: "Este campo solo acepta números."
   },
+    {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Nacimiento",
+    //placeholder: "20-05-1990",
+    //maxLength: 10,
+    //pattern: "^[0-9]*$",
+    //errorMessage: "Este campo solo acepta números."
+  },
   {
     name: "COMPANYID",
     type: "text",
     label: "ID de Compañía",
     placeholder: "Ej. 101",
     required: true,
-     maxLength: 10,
+    maxLength: 10,
     pattern: "^[0-9]*$",
     errorMessage: "Este campo solo acepta números."
    
@@ -80,6 +89,16 @@ export const userCreationFields = [
      maxLength: 10,
     pattern: "^[0-9]*$",
     errorMessage: "Este campo solo acepta números."
+  },
+  {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "URL de Foto de Perfil",
+    placeholder: "http://example.com/foto.jpg",
+    //required: true,
+    //maxLength: 10,
+    pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([\\/\\w .-]*)*\\/?$",
+    errorMessage: "Ingrese una URL válida (ej. http://example.com/foto.jpg)."
   },
   
   {
@@ -158,6 +177,15 @@ export const userEditFields = [
     errorMessage: "Este campo solo acepta números."
   },
   {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Nacimiento",
+    placeholder: "20-05-1990",
+    maxLength: 10,
+    //pattern: "^[0-9]*$",
+    //errorMessage: "Este campo solo acepta números."
+  },
+  {
     name: "COMPANYID",
     type: "text",
     label: "ID de Compañía",
@@ -176,6 +204,16 @@ export const userEditFields = [
     maxLength: 10,
     pattern: "^[0-9]*$",
     errorMessage: "Este campo solo acepta números."
+  },
+   {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "URL de Foto de Perfil",
+    placeholder: "http://example.com/foto.jpg",
+    //required: true,
+    //maxLength: 10,
+    pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([\\/\\w .-]*)*\\/?$",
+    errorMessage: "Ingrese una URL válida (ej. http://example.com/foto.jpg)."
   },
   {
     name: "DETAIL_ROW.ACTIVED",
