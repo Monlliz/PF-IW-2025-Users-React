@@ -83,6 +83,19 @@ export const userCreationFields = [
   },
   
   {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "Foto de Perfil (URL)",
+    placeholder: "https://...",
+    maxLength: 512,
+  },
+  {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Cumpleaños",
+    required: false,
+  },
+  {
     name: "DETAIL_ROW.ACTIVED",
     type: "checkbox",
     label: "Usuario Activo",
@@ -176,6 +189,19 @@ export const userEditFields = [
     maxLength: 10,
     pattern: "^[0-9]*$",
     errorMessage: "Este campo solo acepta números."
+  },
+  {
+    name: "PROFILE_PIC_URL",
+    type: "text",
+    label: "Foto de Perfil (URL)",
+    placeholder: "https://...",
+    maxLength: 512,
+  },
+  {
+    name: "BIRTHDATE",
+    type: "date",
+    label: "Fecha de Cumpleaños",
+    required: false,
   },
   {
     name: "DETAIL_ROW.ACTIVED",

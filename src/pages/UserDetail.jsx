@@ -170,6 +170,12 @@ export default function UserDetail() {
                 <Text>{user.COMPANYID || '-'}</Text>
               </FlexBox>
 
+              {/* FECHA DE CUMPLEAÑOS */}
+              <FlexBox style={rowStyle}>
+                <Label style={labelStyle}>Fecha de Cumpleaños:</Label>
+                <Text>{user.BIRTHDATE ? new Date(user.BIRTHDATE).toLocaleDateString() : '-'}</Text>
+                </FlexBox>
+
               {/* ROLES (Es un array en tu modelo) */}
               <FlexBox style={{ ...rowStyle, borderBottom: 'none' }}>
                 <Label style={labelStyle}>Roles Asignados:</Label>

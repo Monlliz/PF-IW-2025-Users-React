@@ -28,14 +28,16 @@ const userColumns = [
   { Header: "Nombre de Usuario", accessor: "USERNAME" },
   { Header: "Alias", accessor: "ALIAS" },
   { Header: "Correo Electrónico", accessor: "EMAIL" },
-  { Header: "Teléfono", accessor: "PHONENUMBER" },
+  { Header: "Número Telefónico", accessor: "PHONENUMBER" },
   { Header: "Extensión", accessor: "EXTENSION" },
+  { Header: "ID de Compañía", accessor: "COMPANYID" },
+  { Header: "ID de CEDI", accessor: "CEDIID" },
+  { Header: "ID de Empleado", accessor: "EMPLOYEEID" },
   {
     Header: "Activo", accessor: "DETAIL_ROW.ACTIVED",
     Cell: ({ value }) => {
       const isActive = value;
       const statusClass = isActive ? styles.statusActive : styles.statusInactive;
-
       return (
         <div className={`${styles.statusBadge} ${statusClass}`}>
           <Icon name={isActive ? "accept" : "decline"} />
