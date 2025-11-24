@@ -286,8 +286,6 @@ const ReusableModal = ({
                     <ComboBox
                         placeholder="Selecciona o escribe una sociedad..."
                         style={{ width: '100%' }}
-
-                        // --- CORRECCIÓN EN VALUE ---
                         // Construimos el mismo formato "VALOR (ID)" para que coincida con la lista
                         value={(() => {
                             // Usamos == por si el ID es número vs string
@@ -295,7 +293,6 @@ const ReusableModal = ({
                             return s ? `${s.VALOR} (${s.IDVALOR})` : "";
                         })()}
 
-                        // --- CORRECCIÓN EN ONCHANGE ---
                         onChange={(e) => {
                             const selectedText = e.target.value;
                             // Buscamos por el texto completo compuesto
@@ -322,8 +319,6 @@ const ReusableModal = ({
                     <ComboBox
                         placeholder={cedisDisponibles.length === 0 ? "Selecciona una sociedad primero" : "Selecciona o escribe un CEDI..."}
                         style={{ width: '100%' }}
-
-                        // --- CORRECCIÓN EN VALUE ---
                         value={(() => {
                             const c = cedisDisponibles.find(item => item.IDVALOR == value);
                             return c ? `${c.VALOR} (${c.IDVALOR})` : "";

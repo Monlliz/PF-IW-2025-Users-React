@@ -1,11 +1,10 @@
 import styles from '../styles/Users.module.css';
 import ReusableModal from '../components/modals/ReusableModal';
-import { userEditFields, userCreationFields } from '../components/config/Users-fieldConfigs';
+import { userEditFields, userCreationFields, userOrderFields } from '../components/config/Users-fieldConfigs';
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUsersAllService, createUserService, updateUserService, deleteUserService } from '../services/usersService.js';
 import { DbContext } from "../contexts/dbContext";
-import { formatearFecha } from '../utils/formatos.js'
 import {
   Page,
   Bar,
@@ -18,7 +17,10 @@ import {
   FlexBox,
   MessageBox,
   Text,
-  Icon
+  Icon,
+  ComboBox,      
+  ComboBoxItem,  
+  Label          
 } from '@ui5/webcomponents-react';
 
 
@@ -37,8 +39,8 @@ const userColumns = [
       const statusClass = isActive ? styles.statusActive : styles.statusInactive;
       return (
         <div className={`${styles.statusBadge} ${statusClass}`}>
-          <Icon name={isActive ? "accept" : "decline"} />
-          <Text>{isActive ? "Activo" : "Inactivo"}</Text>
+          <Icon name={isActive ? "accept" : "delete"} />
+          <Text>{isActive ? "Activo" : "Borrado"}</Text>
         </div>
       );
     }
@@ -49,7 +51,7 @@ const userColumns = [
 export default function Users() {
   // Base de datos
   const { dbServer } = useContext(DbContext);
-  const navigate = useNavigate(); // <--- Inicializamos la navegación
+  const navigate = useNavigate();
 
   // Cargar datos de usuarios desde el servicio
   const [isLoading, setIsLoading] = useState(true);
@@ -61,9 +63,13 @@ export default function Users() {
   const [isHoveredInfo, setisHoveredInfo] = useState(false);
   const [isHoveredEdit, setisHoveredEdit] = useState(false);
 
-  // Funcionamiento de la barra de busqueda
+  // --- ESTADOS DE DATOS Y FILTROS ---
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
+  
+  // Nuevos estados para controlar los filtros por separado
+  const [searchText, setSearchText] = useState(""); 
+  const [statusFilter, setStatusFilter] = useState("All"); // Default: Todos
 
   /**
    * Carga la lista inicial de usuarios desde el backend.
@@ -74,7 +80,7 @@ export default function Users() {
     try {
       const usersFromDB = await getUsersAllService(dbServer);
       setAllUsers(usersFromDB);
-      setFilteredUsers(usersFromDB);
+      // No seteamos filteredUsers aquí directamente, el useEffect de abajo lo hará
     } catch (err) {
       console.error("Error al cargar usuarios:", err);
       setError(`Error al cargar la lista: ${err.message}`);
@@ -83,20 +89,48 @@ export default function Users() {
     }
   };
 
-  // Filtro de la barra
-  const handleSearch = (event) => {
-    const query = event.target.value.toLowerCase();
-    if (query === '') {
-      setFilteredUsers(allUsers);
-      return;
+  // --- LÓGICA DE FILTRADO CENTRALIZADA ---
+  // Este efecto se ejecuta cuando cambia la data, el texto o el combo
+  useEffect(() => {
+    let result = [...allUsers];
+
+    // Filtrar por Estatus (Combo)
+    if (statusFilter === "Active") {
+      // Filtra los que tienen ACTIVED = true
+      result = result.filter(u => u.DETAIL_ROW?.ACTIVED === true);
+    } else if (statusFilter === "Delete") {
+      // Filtra los que tienen ACTIVED = false (según tu lógica de columna)
+      result = result.filter(u => !u.DETAIL_ROW?.ACTIVED);
     }
-    const filtered = allUsers.filter((user) => {
-      return Object.values(user).some((value) =>
-        String(value).toLowerCase().includes(query)
-      );
-    });
-    setFilteredUsers(filtered);
+
+    // Filtrar por Texto (Search Input)
+    if (searchText) {
+      const lowerQuery = searchText.toLowerCase();
+      result = result.filter((user) => {
+        return Object.values(user).some((value) =>
+          String(value).toLowerCase().includes(lowerQuery)
+        );
+      });
+    }
+
+    setFilteredUsers(result);
+  }, [allUsers, searchText, statusFilter]);
+
+
+  // Manejador del Input de Búsqueda
+  const handleSearchInput = (event) => {
+    setSearchText(event.target.value);
   };
+
+  // Manejador del ComboBox de Estatus
+  const handleStatusChange = (event) => {
+    const selectedText = event.target.value;
+    // Buscamos el ID correspondiente al texto seleccionado
+    const selectedOption = userOrderFields.find(opt => opt.label === selectedText);
+    // Si encuentra opción usa su ID, si no (ej. usuario borra el texto), vuelve a 'All'
+    setStatusFilter(selectedOption ? selectedOption.id : "All");
+  };
+
 
   // MODALES DE LOS BOTONES, FUNCIONAMIENTO
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -125,12 +159,13 @@ export default function Users() {
     setError(null);
 
     try {
-      const { ACTIVED, DELETED, ...rest } = userData;
-      // Aquí puedes reconstruir DETAIL_ROW si tu backend lo requiere específicamente
-      // o enviar 'rest' si tu backend lo arma solo.
+      const { ACTIVED, DELETED, DETAIL_ROW, ...rest } = userData;
       const newUserInput = {
         ...rest,
-        // DETAIL_ROW: { ACTIVED: !!ACTIVED, DELETED: !!DELETED, DETAIL_ROW_REG: [] } // Descomenta si es necesario
+        DETAIL_ROW: {
+          ACTIVED: DETAIL_ROW.ACTIVED,
+          DELETED: !DETAIL_ROW.ACTIVED
+        }
       };
 
       console.log('Objeto final enviado a la API:', newUserInput);
@@ -142,7 +177,7 @@ export default function Users() {
       }
 
       setAllUsers(prevUsers => [...prevUsers, updatedUserList]);
-      setFilteredUsers(prevUsers => [...prevUsers, updatedUserList]);
+      // No hace falta setFilteredUsers, el useEffect lo hará solo
       setShowCreateModal(false);
 
     } catch (err) {
@@ -171,8 +206,17 @@ export default function Users() {
         const { ACTIVED, DELETED, ...rest } = mergedUserData;
         payload = rest;
       }
-
-      const finalUserData = { ...payload };
+      const { DETAIL_ROW } = mergedUserData;
+      const { BIRTHDATE, ...otherDetails } = payload;
+      payload = (BIRTHDATE === "") ? otherDetails : payload;
+      
+      const finalUserData = {
+        ...payload,
+        DETAIL_ROW: {
+          ACTIVED: DETAIL_ROW.ACTIVED,
+          DELETED: !DETAIL_ROW.ACTIVED
+        }
+      };
       const updatedUserFromDB = await updateUserService(finalUserData, dbServer);
 
       if (!updatedUserFromDB || typeof updatedUserFromDB !== 'object') {
@@ -184,12 +228,7 @@ export default function Users() {
           user.USERID === updatedUserFromDB.USERID ? updatedUserFromDB : user
         )
       );
-      setFilteredUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.USERID === updatedUserFromDB.USERID ? updatedUserFromDB : user
-        )
-      );
-
+      
       setShowEditModal(false);
       setEditingUser(null);
       setSelectedRow(null);
@@ -209,10 +248,8 @@ export default function Users() {
   };
 
   // ************ Info (Detalles) ************
-  // CAMBIO PRINCIPAL: Usamos navegación en lugar de Modal
   const handleShowDetails = (userData) => {
     if (userData && userData.USERID) {
-      // Pasamos el objeto 'user' en el state para que la carga sea instantánea
       navigate(`/users/detail/${userData.USERID}`, { state: { user: userData } });
     }
   };
@@ -226,11 +263,10 @@ export default function Users() {
       try {
         if (!itemToDelete) throw new Error("No se ha seleccionado ningún usuario.");
         const userIdToDelete = itemToDelete.USERID;
-        
+
         await deleteUserService(userIdToDelete, dbServer);
 
         setAllUsers(prevUsers => prevUsers.filter(user => user.USERID !== userIdToDelete));
-        setFilteredUsers(prevUsers => prevUsers.filter(user => user.USERID !== userIdToDelete));
         setSelectedRow(null);
 
       } catch (err) {
@@ -266,7 +302,7 @@ export default function Users() {
         filterable
         sortable
         loading={isLoading}
-        visibleRows={14}
+        visibleRows={12}
         noDataText="No se encontraron registros"
         header={
           <Toolbar className={styles.barTable}>
@@ -276,7 +312,8 @@ export default function Users() {
                 placeholder="Buscar..."
                 className={styles.searchInput}
                 icon='search'
-                onInput={handleSearch}
+                onInput={handleSearchInput} // <-- Actualizado para usar el nuevo handler
+                value={searchText}
               />
               <ToolbarButton
                 icon='add'
@@ -285,7 +322,6 @@ export default function Users() {
                 onMouseLeave={() => setisHoveredAdd(false)}
                 onClick={() => setShowCreateModal(true)}
               />
-              {/* Botón de Detalles -> Ahora Navega */}
               <ToolbarButton
                 icon='hint'
                 design={isHoveredInfo ? "Emphasized" : "Transparent"}
@@ -311,6 +347,21 @@ export default function Users() {
                 disabled={!selectedRow}
               />
             </FlexBox>
+
+            <FlexBox alignItems="Center" style={{ marginLeft: '2.5rem' }}>
+              <Label style={{ marginRight: '0.5rem', fontWeight: 'bold' }}>Ver:</Label>
+              <ComboBox
+                onChange={handleStatusChange}
+                // Mostramos el label que corresponde al ID guardado en el estado (o "Todos" por defecto)
+                value={userOrderFields.find(f => f.id === statusFilter)?.label || "Todos"}
+                style={{ width: '45%' }}
+              >
+                {userOrderFields.map((field) => (
+                  <ComboBoxItem key={field.id} text={field.label} />
+                ))}
+              </ComboBox>
+            </FlexBox>
+
             <ToolbarSpacer />
             <Title>Usuarios ({filteredUsers.length})</Title>
           </Toolbar>

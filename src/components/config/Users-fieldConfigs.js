@@ -23,7 +23,9 @@ export const userCreationFields = [
     placeholder: "Ingrese el nombre completo",
     required: true,
     maxLength: 100,
-
+    pattern: "/^[a-zA-Z\s]+$/;",
+    errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
+    
   },
   {
     name: "EMAIL",
@@ -41,15 +43,17 @@ export const userCreationFields = [
     label: "Alias",
     placeholder: "Ingrese el alias del usuario",
     maxLength: 80,
+    pattern: "/^[a-zA-Z\s]+$/;",
+    errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
   },
   {
     name: "PHONENUMBER",
     type: "text",
     label: "Número Telefónico",
-    placeholder: "+52 55 1234 5678",
+    placeholder: "3112345678",
     maxLength: 10,
-    pattern: "^[+0-9]*$",
-    errorMessage: "Solo se permiten números y el símbolo '+'."
+    pattern: "^[0-9]*$",
+    errorMessage: "Solo se permiten números."
   },
   {
     name: "EXTENSION",
@@ -105,13 +109,7 @@ export const userCreationFields = [
     type: "checkbox",
     label: "Usuario Activo",
     default: true,
-  },
-  {
-    name: "DETAIL_ROW.DELETED",
-    type: "checkbox",
-    label: "Usuario Eliminado",
-    default: false,
-  },
+  }
 ];
 
 export const userEditFields = [
@@ -131,13 +129,16 @@ export const userEditFields = [
     required: true,
     disable:true,
   },
-  {
+   {
     name: "USERNAME",
     type: "text",
     label: "Nombre de Usuario",
     placeholder: "Ingrese el nombre completo",
     required: true,
     maxLength: 100,
+    pattern: "/^[a-zA-Z\s]+$/;",
+    errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
+    
   },
   {
     name: "EMAIL",
@@ -148,7 +149,6 @@ export const userEditFields = [
     maxLength: 100,
     pattern: "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
     errorMessage: "Ingrese un correo válido (ej. usuario@empresa.com)."
-    
   },
   {
     name: "ALIAS",
@@ -156,15 +156,17 @@ export const userEditFields = [
     label: "Alias",
     placeholder: "Ingrese el alias del usuario",
     maxLength: 80,
+    pattern: "/^[a-zA-Z\s]+$/;",
+    errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
   },
   {
     name: "PHONENUMBER",
     type: "text",
     label: "Número Telefónico",
-    placeholder: "+52 55 1234 5678",
+    placeholder: "3112345678",
     maxLength: 10,
-    pattern: "^[+0-9]*$",
-    errorMessage: "Solo se permiten números y el símbolo '+'."
+    pattern: "^[0-9]*$",
+    errorMessage: "Solo se permiten números."
   },
   {
     name: "EXTENSION",
@@ -218,10 +220,11 @@ export const userEditFields = [
     name: "DETAIL_ROW.ACTIVED",
     type: "checkbox",
     label: "Usuario Activo",
-  },
-  {
-    name: "DETAIL_ROW.DELETED",
-    type: "checkbox",
-    label: "Usuario Eliminado",
-  },
+  }
+];
+
+export const userOrderFields = [
+  {id: "All", label: "Todos" },
+  {id: "Active", label: "Activos" },
+  {id: "Delete", label: "Borrados" },
 ];
