@@ -274,12 +274,31 @@ export default function PrivilegesLayout() {
   // Confirmación de eliminación: {context, data}
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  //ESTADO INDICADOR PARA VISTAS - NUEVO O EDITADO
+  const [viewIndicators, setViewIndicators] = useState({});
+  const [processIndicators, setProcessIndicators] = useState({});
+
   // Función para cerrar modales y resetear estados relacionados
   const closeModal = () => {
     setModalType(null);
     setModalContext(null);
     setModalData(null);
   };
+
+  //FUNCIÓN GLOBAL PARA RESALTAR CELDAS
+  const highlightCell = (idField, highlightedId) => ({ row, value }) => (
+    <div
+      style={{
+        backgroundColor:
+          row.original[idField] === highlightedId ? "#d1e7ff" : "transparent",
+        padding: "6px",
+        borderRadius: "4px",
+        transition: "0.2s"
+      }}
+    >
+      {value}
+    </div>
+  );
 
   // Manejadores para checkboxes
   const handleCheckBoxChange = (id, checked, setter) => {
@@ -848,7 +867,12 @@ export default function PrivilegesLayout() {
           alias: formData.Alias || formData.VIEWID
         };
         await createLabel(label, dbServer);
-
+        
+        /** MARCAR COMO NUEVO */
+        setViewIndicators(prev => ({
+          ...prev,
+          [formData.VIEWID]: "created"
+        }));
         // Recargar todos los datos desde el backend para mostrar los cambios
         await loadAllData();
 
@@ -869,6 +893,12 @@ export default function PrivilegesLayout() {
           alias: formData.Alias || formData.PROCESSID
         };
         await createLabel(label, dbServer);
+
+        /** MARCAR COMO NUEVO */
+        setProcessIndicators(prev => ({
+          ...prev,
+          [formData.PROCESSID]: "created"
+        }));
 
         // Recargar datos para reflejar los cambios desde el servidor
         await loadAllData();
@@ -1111,19 +1141,95 @@ export default function PrivilegesLayout() {
           <AnalyticalTable
             data={filteredViews}
             columns={[
-              { 
-                Header: "Asignado", 
-                accessor: "asignado",
-                Cell: (row) => (
-                  <CheckBox
-                    checked={checkedViews[row.row.original.VIEWSID] || false}
-                    onChange={(e) => handleViewCheckBoxChange(row.row.original.VIEWSID, e.target.checked)}
-                  />
-                )
-              },
-              { Header: "VIEWID", accessor: "VIEWSID" },
-              { Header: "Descripción", accessor: "Descripcion" }
-            ]}
+            {
+              Header: "Estado",
+              accessor: "estado",
+              width: 80,
+              Cell: ({ row }) => {
+                const id = row.original.VIEWSID;
+                const state = viewIndicators[id];
+                const isHighlighted =
+                  selectedView?.VIEWSID === row.original.VIEWSID;
+
+                return (
+                  <div
+                    style={{
+                      backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                      padding: "6px",
+                      borderRadius: "4px"
+                    }}
+                  >
+                    {state === "created" && (
+                      <span
+                        style={{
+                          background: "#4caf50",
+                          padding: "2px 6px",
+                          color: "white",
+                          borderRadius: "5px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        Nueva
+                      </span>
+                    )}
+
+                    {state === "updated" && (
+                      <span
+                        style={{
+                          background: "#ff9800",
+                          padding: "2px 6px",
+                          color: "white",
+                          borderRadius: "5px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        Editada
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+            }, 
+            { 
+              Header: "Asignado",
+              accessor: "asignado",
+              width: 80,
+              Cell: ({ row }) => {
+                const isHighlighted = selectedView?.VIEWSID === row.original.VIEWSID;
+
+                return (
+                  <div
+                    style={{
+                      backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                      padding: "6px",
+                      borderRadius: "4px"
+                    }}
+                  >
+                    <CheckBox
+                      checked={checkedViews[row.original.VIEWSID] || false}
+                      onChange={(e) =>
+                        handleViewCheckBoxChange(row.original.VIEWSID, e.target.checked)
+                      }
+                    />
+                  </div>
+                );
+              }
+            },
+            {
+              Header: "VIEWID",
+              accessor: "VIEWSID",
+              Cell: highlightCell("VIEWSID", selectedView?.VIEWSID)
+
+            },
+
+            {
+              Header: "Descripción",
+              accessor: "Descripcion",
+              Cell: highlightCell("VIEWSID", selectedView?.VIEWSID)
+            },
+          ]}
             onRowClick={handleViewSelect}
             visibleRows={8}
           />
@@ -1267,19 +1373,101 @@ export default function PrivilegesLayout() {
               <AnalyticalTable
                 data={selectedView && checkedViews[selectedView.VIEWSID] ? filteredProcesses : []}
                 columns={[
+                  // ESTADO
+                  {
+                    Header: "Estado",
+                    accessor: "estado",
+                    width: 80,
+                    Cell: ({ row }) => {
+                      const id = row.original.PROCESSID;
+                      const state = processIndicators[id];
+                      const isHighlighted = selectedProcess?.PROCESSID === id;
+
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                            padding: "6px",
+                            borderRadius: "4px"
+                          }}
+                        >
+                          {state === "created" && (
+                            <span
+                              style={{
+                                background: "#4caf50",
+                                padding: "2px 6px",
+                                color: "white",
+                                borderRadius: "5px",
+                                fontSize: "0.75rem",
+                                fontWeight: "bold"
+                              }}
+                            >
+                              Nuevo
+                            </span>
+                          )}
+
+                          {state === "updated" && (
+                            <span
+                              style={{
+                                background: "#ff9800",
+                                padding: "2px 6px",
+                                color: "white",
+                                borderRadius: "5px",
+                                fontSize: "0.75rem",
+                                fontWeight: "bold"
+                              }}
+                            >
+                              Editado
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+                  },
+
+                  // ASIGNADO
                   {
                     Header: "Asignado",
                     accessor: "asignado",
-                    Cell: (row) => (
-                      <CheckBox
-                        checked={checkedProcesses[row.row.original.PROCESSID] || false}
-                        onChange={(e) => handleProcessCheckBoxChange(row.row.original.PROCESSID, e.target.checked)}
-                      />
-                    )
+                    width: 80,
+                    Cell: ({ row }) => {
+                      const isHighlighted = selectedProcess?.PROCESSID === row.original.PROCESSID;
+
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                            padding: "6px",
+                            borderRadius: "4px"
+                          }}
+                        >
+                          <CheckBox
+                            checked={checkedProcesses[row.original.PROCESSID] || false}
+                            onChange={(e) =>
+                              handleProcessCheckBoxChange(row.original.PROCESSID, e.target.checked)
+                            }
+                          />
+                        </div>
+                      );
+                    }
                   },
-                  { Header: "PROCESSID", accessor: "PROCESSID" },
-                  { Header: "Descripción", accessor: "Descripcion" }
+                  // PROCESSID
+                  {
+                    Header: "PROCESSID",
+                    accessor: "PROCESSID",
+                    Cell: highlightCell("PROCESSID", selectedProcess?.PROCESSID)
+
+                  },
+
+                  // DESCRIPCIÓN
+                  {
+                    Header: "Descripción",
+                    accessor: "Descripcion",
+                    Cell: highlightCell("PROCESSID", selectedProcess?.PROCESSID)
+
+                  }
                 ]}
+
                 onRowClick={handleProcessSelect}
                 visibleRows={8}
               />
@@ -1297,16 +1485,42 @@ export default function PrivilegesLayout() {
                 {
                   Header: "Asignado",
                   accessor: "asignado",
-                  Cell: (row) => (
-                    <CheckBox
-                      checked={checkedPrivileges[row.row.original.PRIVILEGEID] || false}
-                      onChange={(e) => handlePrivilegeCheckBoxChange(row.row.original.PRIVILEGEID, e.target.checked)}
-                    />
-                  )
+                  width: 80,
+                  Cell: ({ row }) => {
+                    const isHighlighted = selectedPrivilege?.PRIVILEGEID === row.original.PRIVILEGEID;
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                          padding: "6px",
+                          borderRadius: "4px"
+                        }}
+                      >
+                        <CheckBox
+                          checked={checkedPrivileges[row.original.PRIVILEGEID] || false}
+                          onChange={(e) =>
+                            handlePrivilegeCheckBoxChange(row.original.PRIVILEGEID, e.target.checked)
+                          }
+                        />
+                      </div>
+                    );
+                  }
                 },
-                { Header: "PRIVILEGEID", accessor: "PRIVILEGEID" },
-                { Header: "Descripción", accessor: "Descripcion" }
+
+                {
+                  Header: "PRIVILEGEID",
+                  accessor: "PRIVILEGEID",
+                 Cell: highlightCell("PRIVILEGEID", selectedPrivilege?.PRIVILEGEID)
+
+                },
+
+                {
+                  Header: "Descripción",
+                  accessor: "Descripcion",
+                  Cell: highlightCell("PRIVILEGEID", selectedPrivilege?.PRIVILEGEID)
+                }
               ]}
+
               onRowClick={handlePrivilegeSelect}
               visibleRows={8}
             />
@@ -1391,6 +1605,13 @@ export default function PrivilegesLayout() {
                 alias: formData.Alias || formData.VIEWSID
               };
               await updateLabel(label, dbServer);
+
+              setViewIndicators(prev => ({
+                ...prev,
+                [selectedView.VIEWSID]: "updated"
+              }));
+
+
               await loadAllData();
               setShowEditView(false);
             } catch (error) {
@@ -1454,6 +1675,11 @@ export default function PrivilegesLayout() {
                 alias: formData.Alias || formData.PROCESSID
               };
               await updateLabel(label, dbServer);
+                setProcessIndicators(prev => ({
+                  ...prev,
+                  [selectedProcess.PROCESSID]: "updated"
+                }));
+
               await loadAllData();
               setShowEditProcess(false);
             } catch (error) {

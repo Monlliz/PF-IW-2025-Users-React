@@ -16,7 +16,7 @@ import {
   updateRole,
   deleteRole
 } from "../services/rolesServices";
-import { createApplication, updateApplication, deleteHardApplication } from "../services/applicationsService";
+import { fetchPrivilegesData, createApplication, updateApplication, deleteHardApplication } from "../services/applicationsService";
 
 import {
   Page,
@@ -33,7 +33,8 @@ import {
   Icon,
   Select,
   Option,
-  CheckBox
+  CheckBox,
+  MessageBox 
 } from "@ui5/webcomponents-react";
 import { DbContext } from "../contexts/dbContext";
 
@@ -250,13 +251,67 @@ const [appSearchTerm, setAppSearchTerm] = useState(''); // Texto ingresado en la
 const [rolSortType, setRolSortType] = useState('roleid'); // 'roleid' o 'rolename'
 const [rolSortOrder, setRolSortOrder] = useState('asc');  // 'asc' o 'desc'
 const [highlightedRolId, setHighlightedRolId] = useState(null); //resaltar rol seleccionado
+
+// ESTADOS DE ROLES Y APLICACIONES
+// EDITADOS O NUEVOS
 const [roleIndicators, setRoleIndicators] = useState({});
+const [appIndicators, setAppIndicators] = useState({});
 
 // Estado que almacena qué aplicaciones están asignadas (checkboxes marcados).
 const [checkedApps, setCheckedApps] = useState({}); // Estructura: { APPID: true/false }
 const [modalType, setModalType] = useState(null); // Tipo de modal actual (ej: "edit", "delete", "info")
 const [modalContext, setModalContext] = useState(null); // Contexto del modal (ej: "rol", "aplicacion")
 const [modalData, setModalData] = useState(null); // Datos enviados al modal (ej: objeto seleccionado)
+
+//ESTADOS MENSAJE DE ERROR SI SE INGRESA EN ID DE ROL INVALIDO
+const [showErrorBox, setShowErrorBox] = useState(false);
+const [errorMessage, setErrorMessage] = useState("");
+
+//PARA MENSAJE DE ELIMINAR ROL
+const [rolDependencies, setRolDependencies] = useState({
+  apps: 0
+});
+
+const loadRoleDependencies = (roleId) => {
+  const apps = appsByRol[roleId] || [];
+
+  setRolDependencies({
+    apps: apps.length
+  });
+};
+
+//PARA MENSAJE DE ELIMINAR APP
+const [appDependencies, setAppDependencies] = useState({
+  views: 0
+});
+
+const [views, setViews] = useState([]);
+
+const loadAppDependencies = (appId) => {
+  // Solo contar cuántas vistas pertenecen a esa aplicación
+  const count = views.filter(v => v.APPID === appId).length;
+
+  setAppDependencies({
+    views: count
+  });
+};
+
+const highlightCell = (idField, highlightedId) => ({ row, value }) => {
+  const isHighlighted = row.original[idField] === highlightedId;
+
+  return (
+    <div
+      style={{
+        backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+        padding: "6px",
+        borderRadius: "4px",
+      }}
+    >
+      {value}
+    </div>
+  );
+};
+
 
 // Cierra cualquier modal y limpia su configuración
 const closeModal = () => {
@@ -280,6 +335,9 @@ const fetchAllData = async () => {
       appsByRol: builtAppsMap 
     } = await fetchAllRolesAndApps(dbServer);
 
+    const privilegesData = await fetchPrivilegesData(dbServer);
+
+    setViews(privilegesData.views || []);
     // Guarda los datos obtenidos en estados locales
     setRoles(loadedRoles);
     setFilteredRoles(loadedRoles);    // Inicialmente, sin filtros
@@ -423,19 +481,27 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
     setCheckedApps(newChecked);
   };
 
-  const onRolRowClick = (e) => {
-    const row = e.detail.row.original;
-    if (row?.ROLEID) {
-      setHighlightedRolId(row.ROLEID); // activa el highlight
-    }
-    handleRolSelect(e); // ✔ mantiene tu lógica original
-  };
+const onRolRowClick = (e) => {
+  const row = e.detail.row.original;
 
-  // Selección de aplicación en la tabla
-  const handleAplicacionSelect = (e) => {
-    const row = e.detail?.row?.original;
-    if (row) setSelectedAplicacion(row);
-  };
+  if (row?.ROLEID) {
+    setHighlightedRolId(row.ROLEID);
+  }
+
+  handleRolSelect(e);
+};
+
+
+const [highlightedAppId, setHighlightedAppId] = useState(null);
+
+const handleAplicacionSelect = (e) => {
+  const row = e.detail?.row?.original;
+  if (row) {
+    setSelectedAplicacion(row);
+    setHighlightedAppId(row.APPID);  // ⭐ RESALTAR FILA
+  }
+};
+
 
   // Crear nueva aplicación y asignarla automáticamente al rol seleccionado
   const handleCreateAplicacion = (appData) => {
@@ -654,7 +720,9 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
                 onMouseEnter={() => setHoveredDeleteRol(true)}
                 onMouseLeave={() => setHoveredDeleteRol(false)}
                 disabled={!selectedRol}
-                onClick={() => { setItemToDeleteRol(selectedRol); setShowConfirmRol(true); }}
+                onClick={() => { loadRoleDependencies(selectedRol.ROLEID);
+                                  setItemToDeleteRol(selectedRol); 
+                                  setShowConfirmRol(true); }}
               />
             </FlexBox>
           </Toolbar>
@@ -662,13 +730,73 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           <AnalyticalTable
             data={filteredRoles}
             columns={[
-              { Header: "ROLEID", accessor: "ROLEID" },
-              { Header: "ROLENAME", accessor: "ROLENAME" }
+              {
+                Header: "Estado",
+                accessor: "estado",
+                width: 85,
+                Cell: ({ row }) => {
+                  const id = row.original.ROLEID;
+                  const state = roleIndicators[id];
+                  const isHighlighted = row.original.ROLEID === highlightedRolId;
+
+                  return (
+                    <div
+                      style={{
+                        backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                        padding: "6px",
+                        borderRadius: "6px"
+                      }}
+                    >
+                      {state === "created" && (
+                        <span style={{
+                          background: "#4caf50",
+                          color: "white",
+                          padding: "3px 8px",
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold"
+                        }}>
+                          Nuevo
+                        </span>
+                      )}
+
+                      {state === "updated" && (
+                        <span style={{
+                          background: "#ff9800",
+                          color: "white",
+                          padding: "3px 8px",
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold"
+                        }}>
+                          Editado
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+              },
+
+              {
+                Header: "ROLEID",
+                accessor: "ROLEID",
+                Cell: highlightCell("ROLEID", highlightedRolId)
+
+              },
+
+              {
+                Header: "ROLENAME",
+                accessor: "ROLENAME",
+                Cell: highlightCell("ROLEID", highlightedRolId)
+
+              }
             ]}
-            onRowClick={handleRolSelect}
+
+            onRowClick={onRolRowClick}
             visibleRows={10}
             withRowHighlight
-
+            columnWidth="auto"
+            scaleWidthMode="Smart"
           />
 
         </div>
@@ -703,15 +831,19 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
             disabled={!selectedRol}
           />
         </FlexBox>
-
+        
         {/* 🎛️ Controles de filtro y orden responsivos */}
         <FlexBox
           direction="Row"
           wrap="Wrap"
           justifyContent="SpaceBetween"
           alignItems="Center"
-          style={{ width: "100%", gap: "0.75rem", opacity: selectedRol ? 1 : 0.5, 
-                    pointerEvents: selectedRol ? 'auto' : 'none' }}
+          style={{
+            width: "100%",
+            gap: "0.75rem",
+            opacity: selectedRol ? 1 : 0.5,
+            pointerEvents: selectedRol ? "auto" : "none"
+          }}
         >
           {/* Filtro */}
           <FlexBox
@@ -725,15 +857,23 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           >
             <Label>Filtrar por:</Label>
             <Select
-              value={appFilterType}
-              onChange={(e) =>
-                setAppFilterType(e.detail.selectedOption.dataset.id)
-              }
+              onChange={(e) => setAppFilterType(e.detail.selectedOption.dataset.id)}
               style={{ width: "100%" }}
               disabled={!selectedRol}
             >
-              <Option data-id="all">Todas las aplicaciones</Option>
-              <Option data-id="assigned">Solo aplicaciones asignadas</Option>
+              <Option 
+                data-id="all" 
+                selected={appFilterType === "all"}
+              >
+                Todas las aplicaciones
+              </Option>
+
+              <Option 
+                data-id="assigned" 
+                selected={appFilterType === "assigned"}
+              >
+                Solo aplicaciones asignadas
+              </Option>
             </Select>
           </FlexBox>
 
@@ -749,18 +889,27 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           >
             <Label>Ordenar por:</Label>
             <Select
-              value={appSortType}
-              onChange={(e) =>
-                setAppSortType(e.detail.selectedOption.dataset.id)
-              }
+              onChange={(e) => setAppSortType(e.detail.selectedOption.dataset.id)}
               style={{ width: "100%" }}
               disabled={!selectedRol}
             >
-              <Option data-id="name">Por nombre</Option>
-              <Option data-id="assigned-first">Asignadas primero</Option>
+              <Option 
+                data-id="name" 
+                selected={appSortType === "name"}
+              >
+                Por nombre
+              </Option>
+
+              <Option 
+                data-id="assigned-first" 
+                selected={appSortType === "assigned-first"}
+              >
+                Asignadas primero
+              </Option>
             </Select>
           </FlexBox>
         </FlexBox>
+
       </FlexBox>
 
           <Toolbar  className={styles.barTable}>
@@ -795,32 +944,116 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
                 onMouseEnter={() => setHoveredDeleteAplicacion(true)}
                 onMouseLeave={() => setHoveredDeleteAplicacion(false)}
                 disabled={!selectedAplicacion}
-                onClick={() => { setItemToDeleteAplicacion(selectedAplicacion); setShowConfirmAplicacion(true); }}
+                onClick={() => { setItemToDeleteAplicacion(selectedAplicacion); 
+                                 setShowConfirmAplicacion(true);
+                                 loadAppDependencies(selectedAplicacion.APPID); }}
               />
             </FlexBox>
           </Toolbar>
 
-          <AnalyticalTable
-            data={filteredApps}
-            columns={[
-              {
-                Header: "Asignado",
-                accessor: "asignado",
-                Cell: (row) => (
-                  <CheckBox
-                    checked={checkedApps[row.row.original.APPID] || false}
-                    onChange={(e) =>
-                      handleAppCheckBoxChange(row.row.original.APPID, e.target.checked)
-                    }
-                  />
-                )
-              },
-              { Header: "APPID", accessor: "APPID" },
-              { Header: "NAMEAPP", accessor: "NAMEAPP" },
-            ]}
-            onRowClick={handleAplicacionSelect}
-            visibleRows={10}
-          />
+            <AnalyticalTable
+              data={filteredApps}
+              columns={[
+                {
+                  Header: "Estado",
+                  accessor: "estado",
+                  width: 80,
+                   Cell: ({ row }) => {
+                    const id = row.original.APPID;
+                    const state = appIndicators[id];
+                    const isHighlighted = row.original.APPID === highlightedAppId;
+
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                          padding: "6px",
+                          borderRadius: "6px"
+                        }}
+                      >
+                        {state === "created" && (
+                          <span
+                            style={{
+                              background: "#4caf50",
+                              color: "white",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              fontSize: "0.75rem",
+                              fontWeight: "bold"
+                            }}
+                          >
+                            Nueva
+                          </span>
+                        )}
+
+                        {state === "updated" && (
+                          <span
+                            style={{
+                              background: "#ff9800",
+                              color: "white",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              fontSize: "0.75rem",
+                              fontWeight: "bold"
+                            }}
+                          >
+                            Editada
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+                },
+                {
+                  Header: "Asignado",
+                  accessor: "asignado",
+                  width: 80,
+                  Cell: ({ row }) => {
+                    const isHighlighted = row.original.APPID === highlightedAppId;
+
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+                          padding: "6px",
+                          display: "flex",
+                          justifyContent: "center",
+                          borderRadius: "4px"
+                        }}
+                      >
+                        <CheckBox
+                          checked={checkedApps[row.original.APPID] || false}
+                          onChange={(e) =>
+                            handleAppCheckBoxChange(row.original.APPID, e.target.checked)
+                          }
+                        />
+                      </div>
+                    );
+                  }
+                },
+                { Header: "APPID", accessor: "APPID",
+                  Cell: highlightCell("APPID", highlightedAppId)
+                 },
+                { Header: "NAMEAPP", accessor: "NAMEAPP",
+                  Cell: highlightCell("APPID", highlightedAppId)
+                },
+              ]}
+
+              onRowClick={handleAplicacionSelect}
+              visibleRows={10}
+              columnWidth="auto"
+
+              rowStyle={(row) => {
+                if (row.original.APPID === highlightedAppId) {
+                  return {
+                    backgroundColor: "#d1eaff",
+                    transition: "0.2s",
+                  };
+                }
+                return {};
+              }}
+            />
+
         </div>
       </SplitterLayout>
 
@@ -835,17 +1068,47 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           { label: 'Descripción', name: 'DESCRIPTION', type: 'text', required: false }
         ]}
         onSubmit={async (rolData) => {
+          // Validar ID duplicado
+          if (roles.some(r => r.ROLEID === rolData.ROLEID)) {
+            setErrorMessage("No es posible crear el rol. El ID ya existe.");
+            setShowErrorBox(true);
+            return; // Detener creación
+          }
+          
+          // VALIDACIÓN DEL NOMBRE DEL ROL
+          const validNameRegex = /^[a-zA-Z0-9_]+$/;
+
+          if (!validNameRegex.test(rolData.ROLEID)) {
+            setErrorMessage("El ID del rol solo puede incluir letras, números y guiones bajos (_).");
+            setShowErrorBox(true);
+            return;
+          }
+
           try {
             await createRole(rolData, dbServer);
-            await fetchAllData(); // Refresh the data
+                setRoleIndicators(prev => ({
+                  ...prev,
+                  [rolData.ROLEID]: "created"
+                }));
+
+                await fetchAllData(); // Refresh the data
             closeModal();
           } catch (error) {
             console.error('Error creating role:', error);
-            // Optionally show an error message to the user
+            setErrorMessage("Ocurrió un error al crear el rol.");
+            setShowErrorBox(true);
           }
         }}
         submitButtonText="Crear Rol"
       />
+      <MessageBox
+        open={showErrorBox}
+        title="Error"
+        onClose={() => setShowErrorBox(false)}
+      >
+        {errorMessage}
+      </MessageBox>
+  
       <ReusableModal
         open={showEditRol}
         onClose={() => setShowEditRol(false)}
@@ -859,6 +1122,12 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
         onSubmit={async (rolData) => {
           try {
             await updateRole(editingRol.ROLEID, rolData, dbServer);
+
+              setRoleIndicators(prev => ({
+                ...prev,
+                [editingRol.ROLEID]: "updated"
+              }));
+
             await fetchAllData(); // Refresh the data
             setShowEditRol(false);
             setEditingRol(null);
@@ -912,7 +1181,23 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           }
         }}
         message={
-          <Text>¿Está seguro de eliminar el rol seleccionado?</Text>
+          <FlexBox direction="Column">
+            <Text>
+              ¿Está seguro de eliminar el rol <strong>{itemToDeleteRol?.ROLENAME}</strong>?
+            </Text>
+
+            <Text style={{ marginTop: "0.75rem" }}>
+              Este rol tiene dependencias:
+            </Text>
+
+            <ul style={{ marginLeft: "1rem", marginTop: "0.5rem" }}>
+              <li>Aplicaciones asignadas: <strong>{rolDependencies.apps}</strong></li>
+            </ul>
+
+            <Text style={{ marginTop: "1rem", color: "red", fontWeight: "bold" }}>
+              Si elimina este rol, todas estas relaciones se perderán.
+            </Text>
+          </FlexBox>
         }
       />
 
@@ -926,6 +1211,21 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           { label: 'Nombre de Aplicación', name: 'NAMEAPP', type: 'text', required: true }
         ]}
         onSubmit={async (appData) => {
+          // ❗ VALIDAR ID DUPLICADO
+          if (allApps.some(a => a.APPID === appData.APPID)) {
+            setErrorMessage("No es posible crear la aplicación. El ID ya existe.");
+            setShowErrorBox(true);
+            return; // ❌ Detener creación
+          }
+
+          // ❗ VALIDAR FORMATO DEL ID (igual que roles)
+          const validNameRegex = /^[a-zA-Z0-9_]+$/;
+
+          if (!validNameRegex.test(appData.APPID)) {
+            setErrorMessage("El ID de la aplicación solo puede incluir letras, números y guiones bajos (_).");
+            setShowErrorBox(true);
+            return;
+          }
           try {
             const transformedData = {
               APPID: appData.APPID,
@@ -933,6 +1233,10 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
               DESCRIPTION: appData.DESCRIPTION || ''
             };
             await createApplication(transformedData, dbServer);
+              setAppIndicators(prev => ({
+                ...prev,
+                [appData.APPID]: "created"
+              }));
             await fetchAllData(); // Refresh the data
             closeModal();
           } catch (error) {
@@ -958,6 +1262,11 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
               DESCRIPTION: appData.DESCRIPTION || ''
             };
             await updateApplication(editingAplicacion.APPID, transformedData, dbServer);
+              setAppIndicators(prev => ({
+                ...prev,
+                [editingAplicacion.APPID]: "updated"
+              }));
+
             await fetchAllData(); // Refresh the data
             setShowEditAplicacion(false);
             setEditingAplicacion(null);
@@ -1007,8 +1316,26 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
           }
         }}
         message={
-          <Text>¿Está seguro de eliminar la aplicación seleccionada?</Text>
+          <FlexBox direction="Column">
+            <Text>
+              ¿Está seguro de eliminar la aplicación 
+              <strong> {itemToDeleteAplicacion?.NAMEAPP} </strong>?
+            </Text>
+
+            <Text style={{ marginTop: "0.75rem" }}>
+              Esta aplicación tiene dependencias reales:
+            </Text>
+
+            <ul style={{ marginLeft: "1rem", marginTop: "0.5rem" }}>
+              <li>Vistas: <strong>{appDependencies.views}</strong></li>
+            </ul>
+
+            <Text style={{ marginTop: "1rem", color: "red", fontWeight: "bold" }}>
+              Si elimina esta aplicación, todas estas relaciones se perderán.
+            </Text>
+          </FlexBox>
         }
+
       />
     </Page>
   );
