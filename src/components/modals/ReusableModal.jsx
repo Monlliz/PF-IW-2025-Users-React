@@ -594,6 +594,7 @@ const ReusableModal = ({
                 onClose={onClose}
                 headerText={title}
                 className={styles.DialogModal}
+                style={{ maxWidth: '400px', minWidth: '400px' }}
                 footer={
                     <>
                         <Button
