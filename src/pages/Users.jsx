@@ -376,6 +376,7 @@ export default function Users() {
         fields={userCreationFields}
         onSubmit={handleCreateUser}
         submitButtonText="Crear Usuario"
+        existingUsers={allUsers}
       />
 
       <ReusableModal

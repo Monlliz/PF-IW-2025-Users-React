@@ -48,7 +48,7 @@ async function callApi(processType, body, dbServer) {
         // Verificamos que sea un objeto real y no null
         if (responseData && typeof responseData === 'object') {
             
-            // AQUÍ ESTÁ LA MAGIA: Devolvemos el objeto, pero con la fecha formateada
+            //Devolvemos el objeto, pero con la fecha formateada
             return {
                 ...responseData,
                 // Agregamos la propiedad formateada igual que haríamos en el map

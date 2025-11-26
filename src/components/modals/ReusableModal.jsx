@@ -59,6 +59,63 @@ const updateNestedValue = (obj, path, value) => {
     };
 };
 
+// --- Generador de ID de Usuario ---
+const generateUserIdFromName = (fullName) => {
+    if (!fullName) return null; // Retornamos null para indicar error o vacío
+
+    const particles = ['de', 'del', 'la', 'las', 'los', 'y', 'san', 'santa', 'el', 'von', 'van', 'da', 'di'];
+    const rawParts = fullName.trim().split(/\s+/);
+
+    // --- 1. VALIDACIÓN DE APELLIDO FALTANTE (Tu lógica) ---
+    // Recorremos las palabras. Si encontramos una partícula y la palabra SIGUIENTE
+    // es la ÚLTIMA de la cadena, asumimos que es un nombre compuesto incompleto.
+    // Ej: "Maria de Jesus" -> 'de' está en índice 1. Siguiente es 'Jesus' (índice 2). 
+    // 'Jesus' es la última palabra. -> ERROR.
+
+    for (let i = 0; i < rawParts.length - 1; i++) {
+        const currentWord = rawParts[i].toLowerCase();
+        const nextWordIndex = i + 1;
+
+        if (particles.includes(currentWord)) {
+            // Si la palabra que sigue a la partícula es la última del arreglo...
+            if (nextWordIndex === rawParts.length - 1) {
+                return "INCOMPLETE_NAME"; // Código especial de error
+            }
+        }
+    }
+
+    // --- 2. FILTRADO Y GENERACIÓN ---
+    const meaningfulParts = rawParts.filter(part => !particles.includes(part.toLowerCase()));
+
+    // Si después de limpiar no hay al menos 2 palabras (1 nombre + 1 apellido), es error
+    if (meaningfulParts.length < 2) return null;
+
+    let prefix = "";
+    const randomNumbers = Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+
+    // CASO A: Exactamente 2 palabras significativas (Ej: "Juan Perez")
+    if (meaningfulParts.length === 2) {
+        const nameL = meaningfulParts[0][0];
+        const surnameL = meaningfulParts[1][0];
+        const randomChar = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+        prefix = nameL + surnameL + randomChar;
+    }
+    // CASO B: 3 o más palabras (Ej: "Maria Perez Gonzales" o "Maria de Jesus Lopez")
+    else {
+        const nameL = meaningfulParts[0][0]; // 1ra letra Nombre
+        const surname1L = meaningfulParts[meaningfulParts.length - 2][0]; // 1ra letra Penúltimo
+        const surname2L = meaningfulParts[meaningfulParts.length - 1][0]; // 1ra letra Último
+        prefix = nameL + surname1L + surname2L;
+    }
+
+    return (prefix + randomNumbers).toUpperCase();
+};
+
+// --- Generar ID de Empleado (4 números) ---
+const generateEmployeeId = () => {
+    // Genera un número entre 1000 y 9999
+    return Math.floor(1000 + Math.random() * 9000).toString();
+};
 
 const ReusableModal = ({
     open,
@@ -68,6 +125,7 @@ const ReusableModal = ({
     onSubmit,
     submitButtonText = "Guardar",
     initialData = {},
+    existingUsers = [] // <-- RECIBIMOS LA LISTA DE USUARIOS EXISTENTES
 }) => {
 
     // --- Estados ---
@@ -81,6 +139,9 @@ const ReusableModal = ({
     const [sociedades, setSociedades] = useState([]);
     const [cedisDisponibles, setCedisDisponibles] = useState([]);
 
+    // --- Detectar si estamos editando ---
+    // Si initialData tiene un USERID, asumimos que es edición.
+    const isEditMode = !!initialData && !!getNestedValue(initialData, 'USERID');
 
     /**
      * Carga el formulario cuando se abre el modal.
@@ -92,17 +153,22 @@ const ReusableModal = ({
             // 1. Construir la data del formulario
             const initialFormData = {};
             fields.forEach(field => {
-                const value =
+                let value =
                     getNestedValue(initialData, field.name) ??
                     field.default ??
                     (field.type === 'checkbox' ? false : '');
+                // --- Autogenerar EMPLOYEEID---
+                if (!isEditMode && field.name === 'EMPLOYEEID') {
+                    // Si no estamos editando y es el campo de empleado, generamos el ID
+                    value = generateEmployeeId();
+                }
                 setNestedValue(initialFormData, field.name, value);
             });
             setFormData(initialFormData);
             setErrors({});
 
-            // 2. Llamada a API y Configuración de Edición
-            // 2. Cargar las sociedades y FILTRAR IDs no numéricos
+            // Llamada a API y Configuración de Edición
+            // Cargar las sociedades y FILTRAR IDs no numéricos
             getSociedades().then((res) => {
                 const rawList = res || [];
 
@@ -155,7 +221,7 @@ const ReusableModal = ({
 
             });
         }
-        
+
     }, [open, fields]);
 
     // Cuando cambia la compañía, filtramos los CEDIs
@@ -212,6 +278,82 @@ const ReusableModal = ({
             }));
         }
 
+        // ---VALIDACIÓN MANUAL DE USERID (Si el usuario lo escribe) ---
+        if (fieldName === "USERID") {
+            // Verificamos si el ID escrito ya existe en la base de datos
+            const idExists = existingUsers.some(u => u.USERID === value.toUpperCase());
+
+            if (idExists) {
+                setErrors(prev => ({
+                    ...prev,
+                    [fieldName]: "Este ID ya existe. Por favor, elija otro."
+                }));
+            } else {
+                // Si no existe (y no hay error de pattern), limpiamos
+                if (!errors[fieldName] || errors[fieldName] === "Este ID ya existe. Por favor, elija otro.") {
+                    setErrors(prev => ({ ...prev, [fieldName]: '' }));
+                }
+            }
+        }
+
+        // --- LÓGICA ESPECIAL: USERNAME -> USERID ---
+        if (fieldName === "USERNAME") {
+
+            // Intentamos generar el ID con la lógica estricta
+            const generatedId = generateUserIdFromName(value);
+
+            // Caso 1: Se detectó un nombre incompleto (ej: "Maria de Jesus")
+            if (generatedId === "INCOMPLETE_NAME") {
+                setErrors(prev => ({
+                    ...prev,
+                    [fieldName]: "Parece que falta el apellido (Nombre compuesto detectado)."
+                }));
+                generatedId = ""; // Limpiamos ID
+            }
+
+            // Caso 2: No hay suficientes palabras significativas (menos de 2)
+            else if (generatedId === null) {
+                // Si hay texto escrito pero no es suficiente, mostramos advertencia
+                if (value.trim().length > 0) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [fieldName]: "Ingrese al menos un nombre y un apellido."
+                    }));
+                }
+                generatedId = ""; // Limpiamos ID
+            }
+
+            // Caso 3: ¡ÉXITO! Generamos el ID
+            else if (!isEditMode) {
+                setErrors(prev => ({ ...prev, [fieldName]: '' })); // Limpiar errores
+                // --- VALIDACIÓN DE COLISIÓN (AUTOGENERADO) ---
+                // Si el ID generado ya existe, lo regeneramos hasta encontrar uno libre
+                // (Como la función usa randomNumbers, llamarla de nuevo da otro resultado)
+                let attempts = 0;
+                // "Mientras el ID exista en la lista de usuarios..."
+                while (existingUsers.some(u => u.USERID === generatedId) && attempts < 10) {
+                    console.log(`Colisión detectada con ${generatedId}, regenerando...`);
+                    generatedId = generateUserIdFromName(value);
+                    attempts++;
+
+                }
+                setFormData(prev => {
+                    const updated = structuredClone(prev);
+                    setNestedValue(updated, fieldName, value); // Actualiza nombre
+                    // Solo tocamos el USERID si hubo un cambio (para bien o para borrarlo)
+                    if (generatedId !== undefined) {
+                        setNestedValue(updated, "USERID", generatedId);
+
+                        // Si autogeneramos un ID válido, nos aseguramos de borrar cualquier error manual previo en USERID
+                        if (generatedId) {
+                            setErrors(prevErr => ({ ...prevErr, "USERID": '' }));
+                        }
+                    }
+                    return updated;
+                });
+                return;
+            }
+        }
         // Actualizar el estado (con el valor bueno o malo)
         // Uso structuredClone para no mutar el estado de React
         setFormData(prev => {
@@ -369,7 +511,7 @@ const ReusableModal = ({
                                     {hasError} {/* Muestra el mensaje de error */}
                                 </div>
                             }
-                            disabled={field.disabled || false}
+                            disabled={field.disable || false}
                         />
                         {/* Muestra el error abajo también (por si acaso) */}
                         {hasError && (

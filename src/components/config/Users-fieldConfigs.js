@@ -9,23 +9,25 @@ export const userCreationFields = [
     errorMessage: "Este campo solo acepta números."
   },
   {
-    name: "USERID",
-    type: "text",
-    label: "Identificador de Usuario",
-    placeholder: "USER1",
-    required: true,
-    maxLength: 20,
-  },
-  {
     name: "USERNAME",
     type: "text",
     label: "Nombre de Usuario",
     placeholder: "Ingrese el nombre completo",
     required: true,
     maxLength: 100,
-    pattern: "/^[a-zA-Z\s]+$/;",
+    pattern:  "^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\\s]+$",
     errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
     
+  },
+  {
+    name: "USERID",
+    type: "text",
+    label: "Identificador de Usuario (ID)",
+    placeholder: "USER1",
+    required: true,
+    maxLength: 20,
+    pattern: "^(?!\\d)(?!.*[-_]{2})(?!.*[-_]$)[A-Za-z0-9_-]+$",
+    errorMessage: "Ingrese un ID válido (ej. USR-01, LOPEZ_ANA)."
   },
   {
     name: "EMAIL",
@@ -43,7 +45,7 @@ export const userCreationFields = [
     label: "Alias",
     placeholder: "Ingrese el alias del usuario",
     maxLength: 80,
-    pattern: "/^[a-zA-Z\s]+$/;",
+    pattern:  "^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\\s]+$",
     errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
   },
   {
@@ -118,16 +120,16 @@ export const userEditFields = [
     type: "number",
     label: "ID de Empleado",
     maxLength: 10,
-    pattern: "^[+0-9 ]*$",
+    pattern: "^[+0-9]*$",
     disable: true,
   },
    {
     name: "USERID",
     type: "text",
-    label: "Identificador de Usuario",
+    label: "Identificador de Usuario (ID)",
     placeholder: "USER1",
     required: true,
-    disable:true,
+    disable: true,
   },
    {
     name: "USERNAME",
@@ -136,7 +138,7 @@ export const userEditFields = [
     placeholder: "Ingrese el nombre completo",
     required: true,
     maxLength: 100,
-    pattern: "/^[a-zA-Z\s]+$/;",
+    pattern:  "^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\\s]+$",
     errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
     
   },
@@ -156,7 +158,7 @@ export const userEditFields = [
     label: "Alias",
     placeholder: "Ingrese el alias del usuario",
     maxLength: 80,
-    pattern: "/^[a-zA-Z\s]+$/;",
+    pattern:  "^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\\s]+$",
     errorMessage: "Ingrese un nombre válido (solo letras y espacios)."
   },
   {
