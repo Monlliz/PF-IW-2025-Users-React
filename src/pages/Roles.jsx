@@ -246,6 +246,12 @@ const [appFilterType, setAppFilterType] = useState('all');
 const [appSortType, setAppSortType] = useState('name'); // Ordenamiento activo: name, date, asc/desc, etc.
 const [appSearchTerm, setAppSearchTerm] = useState(''); // Texto ingresado en la barra de búsqueda de aplicaciones
 
+//Filtros de orden para roles
+const [rolSortType, setRolSortType] = useState('roleid'); // 'roleid' o 'rolename'
+const [rolSortOrder, setRolSortOrder] = useState('asc');  // 'asc' o 'desc'
+const [highlightedRolId, setHighlightedRolId] = useState(null); //resaltar rol seleccionado
+const [roleIndicators, setRoleIndicators] = useState({});
+
 // Estado que almacena qué aplicaciones están asignadas (checkboxes marcados).
 const [checkedApps, setCheckedApps] = useState({}); // Estructura: { APPID: true/false }
 const [modalType, setModalType] = useState(null); // Tipo de modal actual (ej: "edit", "delete", "info")
@@ -394,6 +400,7 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
     setFiltered(f);
   };
 
+
   // Cuando se selecciona un rol en la tabla
   const handleRolSelect = (e) => {
     const row = e.detail.row.original; // Datos del rol seleccionado
@@ -414,6 +421,14 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
     });
 
     setCheckedApps(newChecked);
+  };
+
+  const onRolRowClick = (e) => {
+    const row = e.detail.row.original;
+    if (row?.ROLEID) {
+      setHighlightedRolId(row.ROLEID); // activa el highlight
+    }
+    handleRolSelect(e); // ✔ mantiene tu lógica original
   };
 
   // Selección de aplicación en la tabla
@@ -531,6 +546,20 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
     applyAppFiltersAndSort();
   }, [appsByRol, selectedRol, appFilterType, appSortType, appSearchTerm]);
 
+  useEffect(() => {
+    let sortedRoles = [...filteredRoles];
+    sortedRoles.sort((a, b) => {
+      let valA = rolSortType === 'roleid' ? a.ROLEID : a.ROLENAME;
+      let valB = rolSortType === 'roleid' ? b.ROLEID : b.ROLENAME;
+      if (rolSortOrder === 'asc') {
+        return valA.localeCompare(valB, 'es', { sensitivity: 'base' });
+      } else {
+        return valB.localeCompare(valA, 'es', { sensitivity: 'base' });
+      }
+    });
+    setFilteredRoles(sortedRoles);
+  }, [rolSortType, rolSortOrder, roles]);
+
   return (
     <Page className={styles.pageContainer}>
       <Bar>
@@ -571,6 +600,24 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
               maxWidth: "600px",
               minWidth: "30px",
             }}
+          />
+        </FlexBox>
+        <FlexBox direction="Row" alignItems="Center" style={{ gap: "1rem", marginBottom: "1rem"  }}>
+          <Label>Ordenar por:</Label>
+          <Select
+            value={rolSortType}
+            onChange={(e) => setRolSortType(e.detail.selectedOption.dataset.id)}
+          
+          >
+            <Option value="roleid">ID de Rol</Option>
+            <Option value="rolename">Nombre de Rol</Option>
+          </Select>
+
+          <ToolbarButton
+            icon={rolSortOrder === "asc" ? "sort-ascending" : "sort-descending"}
+            design="Transparent"
+            tooltip={rolSortOrder === "asc" ? "Ascendente" : "Descendente"}
+            onClick={() => setRolSortOrder(prev => (prev === "asc" ? "desc" : "asc"))}
           />
         </FlexBox>
       </FlexBox>
@@ -620,6 +667,8 @@ const handleAppCheckBoxChange = async (appId, isChecked) => {
             ]}
             onRowClick={handleRolSelect}
             visibleRows={10}
+            withRowHighlight
+
           />
 
         </div>
