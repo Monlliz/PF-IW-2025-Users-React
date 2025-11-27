@@ -190,9 +190,6 @@ export default function PrivilegesLayout() {
   const [selectedViewDetails, setSelectedViewDetails] = useState(null);
   // Vista siendo editada
   const [editingView, setEditingView] = useState(null);
-  // Vista a eliminar
-  const [itemToDeleteView, setItemToDeleteView] = useState(null);
-
   // Estados de hover y modales para Procesos
   // Estados de hover para botones de acciones en procesos
   const [isHoveredAddProcess, setHoveredAddProcess] = useState(false);
@@ -208,23 +205,6 @@ export default function PrivilegesLayout() {
   // Proceso siendo editado
   const [editingProcess, setEditingProcess] = useState(null);
 
-
-  // Estados de hover y modales para Privilegios
-  // Estados de hover para botones de acciones en privilegios (no implementados aún)
-  const [isHoveredAddPriv, setHoveredAddPriv] = useState(false);
-  const [isHoveredInfoPriv, setHoveredInfoPriv] = useState(false);
-  const [isHoveredEditPriv, setHoveredEditPriv] = useState(false);
-  const [isHoveredDeletePriv, setHoveredDeletePriv] = useState(false);
-  // Estados para mostrar modales de edición y confirmación para privilegios (no implementados)
-  const [showEditPriv, setShowEditPriv] = useState(false);
-  const [showConfirmPriv, setShowConfirmPriv] = useState(false);
-  const [isPrivDetailModalOpen, setIsPrivDetailModalOpen] = useState(false);
-  // Datos del privilegio seleccionado para detalles
-  const [selectedPrivDetails, setSelectedPrivDetails] = useState(null);
-  // Privilegio siendo editado
-  const [editingPriv, setEditingPriv] = useState(null);
-  // Privilegio a eliminar
-  const [itemToDeletePriv, setItemToDeletePriv] = useState(null);
   // Privilegio actualmente seleccionado
   const [selectedPrivilege, setSelectedPrivilege] = useState(null);
 
@@ -235,12 +215,6 @@ export default function PrivilegesLayout() {
   const [checkedProcesses, setCheckedProcesses] = useState({});
   // Estados de selección (checked) para privilegios asignados
   const [checkedPrivileges, setCheckedPrivileges] = useState({});
-
-  // Booleans calculados para renderizado condicional
-  // Indica si hay vistas seleccionadas (para habilitar acciones)
-  const hasCheckedViews = Object.values(checkedViews).some(checked => checked);
-  // Indica si hay procesos seleccionados (para habilitar acciones)
-  const hasCheckedProcesses = Object.values(checkedProcesses).some(checked => checked);
 
   // Estados de filtrado y ordenamiento para vistas
   // Tipo de filtro para vistas: 'all' (todas) o 'assigned' (solo asignadas)
@@ -286,27 +260,27 @@ export default function PrivilegesLayout() {
   };
 
   //FUNCIÓN GLOBAL PARA RESALTAR CELDAS
-  const highlightCell = (idField, highlightedId) => ({ row, value }) => (
+const highlightCell = (field, selectedValue) => ({ row, value }) => {
+  const isHighlighted = row.original[field] === selectedValue;
+
+  return (
     <div
       style={{
-        backgroundColor:
-          row.original[idField] === highlightedId ? "#d1e7ff" : "transparent",
-        padding: "6px",
-        borderRadius: "4px",
-        transition: "0.2s"
+        backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+        height: "100%",
+        width: "calc(100% + 16px)", 
+        marginLeft: "-8px",
+        marginRight: "-8px",
+        display: "flex",
+        padding: "4px 8px",
+        alignItems: "center",
+        borderRadius: "4px"
       }}
     >
       {value}
     </div>
   );
-
-  // Manejadores para checkboxes
-  const handleCheckBoxChange = (id, checked, setter) => {
-    setter((prev) => ({
-      ...prev,
-      [id]: checked
-    }));
-  };
+};
 
   // Manejador específico para checkboxes de vistas (con llamada a API)
   const handleViewCheckBoxChange = async (viewId, checked) => {
@@ -860,6 +834,12 @@ export default function PrivilegesLayout() {
           return;
         }
 
+        // Validar unicidad de VIEWID
+        if (views.some(v => String(v.VIEWSID) === String(formData.VIEWID))) {
+          alert('El VIEWID ya existe. Por favor, elija uno único.');
+          return;
+        }
+
         const label = {
           idetiqueta: 'IdVistas',
           idvalor: formData.VIEWID,
@@ -883,6 +863,12 @@ export default function PrivilegesLayout() {
       if (modalContext === 'process') {
         if (!selectedApp || !selectedView) {
           alert('Seleccione una aplicación y una vista antes de crear un proceso.');
+          return;
+        }
+
+        // Validar unicidad de PROCESSID
+        if (processes.some(p => String(p.PROCESSID) === String(formData.PROCESSID))) {
+          alert('El PROCESSID ya existe. Por favor, elija uno único.');
           return;
         }
 
@@ -1155,8 +1141,13 @@ export default function PrivilegesLayout() {
                   <div
                     style={{
                       backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                      padding: "6px",
-                      borderRadius: "4px"
+                      height: "100%",
+                      width: "calc(100% + 16px)",
+                      marginLeft: "-8px",
+                      marginRight: "-8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     {state === "created" && (
@@ -1203,8 +1194,13 @@ export default function PrivilegesLayout() {
                   <div
                     style={{
                       backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                      padding: "6px",
-                      borderRadius: "4px"
+                      height: "100%",
+                      width: "calc(100% + 16px)",
+                      marginLeft: "-8px",
+                      marginRight: "-8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     <CheckBox
@@ -1387,8 +1383,13 @@ export default function PrivilegesLayout() {
                         <div
                           style={{
                             backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                            padding: "6px",
-                            borderRadius: "4px"
+                            height: "100%",
+                            width: "calc(100% + 16px)",
+                            marginLeft: "-8px",
+                            marginRight: "-8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           {state === "created" && (
@@ -1437,8 +1438,13 @@ export default function PrivilegesLayout() {
                         <div
                           style={{
                             backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                            padding: "6px",
-                            borderRadius: "4px"
+                            height: "100%",
+                            width: "calc(100% + 16px)",
+                            marginLeft: "-8px",
+                            marginRight: "-8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           <CheckBox
@@ -1456,7 +1462,6 @@ export default function PrivilegesLayout() {
                     Header: "PROCESSID",
                     accessor: "PROCESSID",
                     Cell: highlightCell("PROCESSID", selectedProcess?.PROCESSID)
-
                   },
 
                   // DESCRIPCIÓN
@@ -1464,7 +1469,6 @@ export default function PrivilegesLayout() {
                     Header: "Descripción",
                     accessor: "Descripcion",
                     Cell: highlightCell("PROCESSID", selectedProcess?.PROCESSID)
-
                   }
                 ]}
 
@@ -1492,8 +1496,13 @@ export default function PrivilegesLayout() {
                       <div
                         style={{
                           backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                          padding: "6px",
-                          borderRadius: "4px"
+                          height: "100%",
+                          width: "calc(100% + 16px)",
+                          marginLeft: "-8px",
+                          marginRight: "-8px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
                         <CheckBox
@@ -1546,7 +1555,7 @@ export default function PrivilegesLayout() {
             modalType === "delete"
               ? []
               : [
-                  { label: "VIEWID", name: "VIEWID", type: 'text', required: true, placeholder: 'Identificador único (ej. IdPronosticoVentas)' },
+                  { label: "VIEWID", name: "VIEWID", type: 'text', required: true, pattern: '^[a-zA-Z][a-zA-Z0-9_]*$', errorMessage: 'Debe empezar con una letra y contener solo letras, números o guiones bajos (_).', placeholder: 'Identificador único (ej. IdPronosticoVentas)' },
                   { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Nombre legible de la vista' },
                   { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
                 ]
@@ -1573,7 +1582,7 @@ export default function PrivilegesLayout() {
             modalType === "delete"
               ? []
               : [
-                  { label: "PROCESSID", name: "PROCESSID", type: 'text', required: true, placeholder: 'Identificador único del proceso' },
+                  { label: "PROCESSID", name: "PROCESSID", type: 'text', required: true, pattern: '^[a-zA-Z][a-zA-Z0-9_]*$', errorMessage: 'Debe empezar con una letra y contener solo letras, números o guiones bajos (_).', placeholder: 'Identificador único del proceso' },
                   { label: "Descripción", name: "Descripcion", type: 'text', required: true, placeholder: 'Descripción del proceso' },
                   { label: "Alias (opcional)", name: "Alias", type: 'text', required: false, placeholder: 'Alias corto (opcional)'}
                 ]
@@ -1591,7 +1600,7 @@ export default function PrivilegesLayout() {
           onClose={() => setShowEditView(false)}
           title="Editar Vista"
           fields={[
-            { label: "VIEWID", name: "VIEWSID", type: 'text', required: true, disabled: true },
+            { label: "VIEWID", name: "VIEWSID", type: 'text', required: true, disable: true },
             { label: "Descripción", name: "Descripcion", type: 'text', required: true },
             { label: "Alias (opcional)", name: "Alias", type: 'text', required: false }
           ]}
@@ -1661,7 +1670,7 @@ export default function PrivilegesLayout() {
           onClose={() => setShowEditProcess(false)}
           title="Editar Proceso"
           fields={[
-            { label: 'PROCESSID', name: 'PROCESSID', type: 'text', required: true, disabled: true },
+            { label: 'PROCESSID', name: 'PROCESSID', type: 'text', required: true, disable: true },
             { label: 'Descripción', name: 'Descripcion', type: 'text', required: true },
             { label: 'Alias (opcional)', name: 'Alias', type: 'text', required: false }
           ]}

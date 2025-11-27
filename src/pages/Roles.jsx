@@ -296,15 +296,21 @@ const loadAppDependencies = (appId) => {
   });
 };
 
-const highlightCell = (idField, highlightedId) => ({ row, value }) => {
-  const isHighlighted = row.original[idField] === highlightedId;
+const highlightCell = (field, selectedValue) => ({ row, value }) => {
+  const isHighlighted = row.original[field] === selectedValue;
 
   return (
     <div
       style={{
         backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-        padding: "6px",
-        borderRadius: "4px",
+        height: "100%",
+        width: "calc(100% + 16px)", 
+        marginLeft: "-8px",
+        marginRight: "-8px",
+        display: "flex",
+        padding: "4px 8px",
+        alignItems: "center",
+        borderRadius: "4px"
       }}
     >
       {value}
@@ -743,8 +749,12 @@ const handleAplicacionSelect = (e) => {
                     <div
                       style={{
                         backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                        padding: "6px",
-                        borderRadius: "6px"
+                        height: "100%",
+                        width: "calc(100% + 16px)", 
+                        marginLeft: "-8px",
+                        marginRight: "-8px",
+                        display: "flex",
+                        alignItems: "center"
                       }}
                     >
                       {state === "created" && (
@@ -967,8 +977,13 @@ const handleAplicacionSelect = (e) => {
                       <div
                         style={{
                           backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                          padding: "6px",
-                          borderRadius: "6px"
+                          height: "100%",
+                          width: "calc(100% + 16px)", 
+                          marginLeft: "-8px",
+                          marginRight: "-8px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
                         }}
                       >
                         {state === "created" && (
@@ -1015,10 +1030,13 @@ const handleAplicacionSelect = (e) => {
                       <div
                         style={{
                           backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
-                          padding: "6px",
+                          height: "100%",
+                          width: "calc(100% + 16px)", 
+                          marginLeft: "-8px",
+                          marginRight: "-8px",
                           display: "flex",
-                          justifyContent: "center",
-                          borderRadius: "4px"
+                          alignItems: "center",
+                          justifyContent: "center"
                         }}
                       >
                         <CheckBox
@@ -1114,7 +1132,7 @@ const handleAplicacionSelect = (e) => {
         onClose={() => setShowEditRol(false)}
         title="Editar Rol"
         fields={[
-          { label: 'ID de Rol', name: 'ROLEID', type: 'text', required: true, disabled: true },
+          { label: 'ID de Rol', name: 'ROLEID', type: 'text', required: true, disable: true },
           { label: 'Nombre de Rol', name: 'ROLENAME', type: 'text', required: true },
           { label: 'Descripción', name: 'DESCRIPTION', type: 'text', required: false }
         ]}
@@ -1251,7 +1269,7 @@ const handleAplicacionSelect = (e) => {
         onClose={() => setShowEditAplicacion(false)}
         title="Editar Aplicación"
         fields={[
-          { label: 'ID de Aplicación', name: 'APPID', type: 'text', required: true, disabled: true },
+          { label: 'ID de Aplicación', name: 'APPID', type: 'text', required: true, disable: true },
           { label: 'Nombre de Aplicación', name: 'NAMEAPP', type: 'text', required: true }
         ]}
         initialData={editingAplicacion}

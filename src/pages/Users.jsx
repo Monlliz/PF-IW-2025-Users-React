@@ -288,7 +288,95 @@ export default function Users() {
   useEffect(() => {
     loadUsers(dbServer);
   }, []);
+  //funcion para colorear 
+  const getCellContainer = (isHighlighted, content) => (
+    <div
+      style={{
+        backgroundColor: isHighlighted ? "#d1e7ff" : "transparent",
+        height: "100%",
+        // Estos valores negativos rompen el padding default de la tabla para llenar la celda
+        width: "calc(100% + 16px)", 
+        marginLeft: "-8px",
+        marginRight: "-8px",
+        paddingLeft: "8px", // Recuperamos el padding visual para el texto
+        display: "flex",
+        alignItems: "center"
+      }}
+    >
+      {content}
+    </div>
+  );
+  //colomnas de la tabla con celda coloreada
+  // Definición de columnas CON lógica de resaltado
+  const columnsWithHighlight = React.useMemo(() => [
+    { 
+      Header: "User ID", 
+      accessor: "USERID",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    { 
+      Header: "Nombre de Usuario", 
+      accessor: "USERNAME",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    { 
+      Header: "Alias", 
+      accessor: "ALIAS",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    { 
+      Header: "Correo Electrónico", 
+      accessor: "EMAIL",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    { 
+      Header: "Número Telefónico", 
+      accessor: "PHONENUMBER",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    { 
+      Header: "Extensión", 
+      accessor: "EXTENSION",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        return getCellContainer(isSelected, value);
+      }
+    },
+    {
+      Header: "Activo", 
+      accessor: "DETAIL_ROW.ACTIVED",
+      Cell: ({ value, row }) => {
+        const isSelected = selectedRow && row.original.USERID === selectedRow.USERID;
+        const isActive = value;
+        const statusClass = isActive ? styles.statusActive : styles.statusInactive;
+        
+        // Envolvemos tu badge original con el contenedor azul
+        const badgeContent = (
+          <div className={`${styles.statusBadge} ${statusClass}`}>
+            <Icon name={isActive ? "accept" : "delete"} />
+            <Text>{isActive ? "Activo" : "Borrado"}</Text>
+          </div>
+        );
 
+        return getCellContainer(isSelected, badgeContent);
+      }
+    },
+  ], [selectedRow]); // Se recalcula cuando cambia la fila seleccionada
   // -----------------------------------------------------------------------------
   return (
     <Page className={styles.pageContainer}>
@@ -296,7 +384,7 @@ export default function Users() {
 
       <AnalyticalTable
         data={filteredUsers}
-        columns={userColumns}
+        columns={columnsWithHighlight}
         selectionMode="SingleSelect"
         onRowSelect={handleRowSelect}
         filterable
