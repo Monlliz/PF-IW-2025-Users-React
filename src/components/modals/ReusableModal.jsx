@@ -300,7 +300,7 @@ const ReusableModal = ({
         if (fieldName === "USERNAME") {
 
             // Intentamos generar el ID con la lógica estricta
-            const generatedId = generateUserIdFromName(value);
+            let generatedId = generateUserIdFromName(value);
 
             // Caso 1: Se detectó un nombre incompleto (ej: "Maria de Jesus")
             if (generatedId === "INCOMPLETE_NAME") {
