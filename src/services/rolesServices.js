@@ -106,8 +106,10 @@ export async function fetchRolesData(dbServer) {
   try {
     const data = await callRolesApi('getAll', {}, dbServer);
 
-    // Estructura estándar del API
-    const dataRes = data.data?.[0]?.dataRes || [];
+    console.log("Respuesta completa API Roles:", data);
+
+    // Usamos la estructura correcta: data.value...
+    const dataRes = data.value?.[0]?.data?.[0]?.dataRes || [];
 
     // Procesamiento básico de roles
     const roles = dataRes.map(role => ({
@@ -263,14 +265,27 @@ export async function fetchAllRolesAndApps(dbServer) {
  * @param {object} data - Campos a actualizar
  * @param {string} dbServer
  */
-export async function updateRole(roleId, data, dbServer) {
+export async function updateRole(roleData, dbServer) {
+  
+  // 1. LIMPIEZA DE DATOS (Allowlist / Lista Blanca)
+  // Creamos un objeto nuevo SOLO con los campos que el backend CAP permite.
+  // Esto elimina automáticamente _id, __v, y cualquier otra basura.
+  const cleanPayload = {
+    ROLEID: roleData.ROLEID,
+    ROLENAME: roleData.ROLENAME,
+    DESCRIPTION: roleData.DESCRIPTION || "",
+    ACTIVED: roleData.ACTIVED,
+    DELETED: roleData.DELETED,
+    // Si NO vas a editar procesos en esta llamada, mejor no los envíes 
+    // para evitar errores de validación en estructuras anidadas.
+    // PROCESS: [] 
+  };
+
+  // 2. Enviamos el objeto limpio
   return callRolesApi(
     'updateOne',
     {
-      rol: {
-        ROLEID: roleId,
-        ...data
-      }
+      rol: cleanPayload
     },
     dbServer
   );
@@ -296,10 +311,17 @@ export async function createRole(data, dbServer) {
  * @param {string} roleId
  * @param {string} dbServer
  */
-export async function deleteRole(roleId, dbServer) {
+export async function deleteRole(roleData, dbServer) {
+  // Extraemos el ID del objeto para asegurarnos de enviar una cadena de texto, no un objeto
+  const idToDelete = roleData.ROLEID;
+
   return callRolesApi(
     'deleteRol',
-    { rol: { ROLEID: roleId } },
+    { 
+      rol: { 
+        ROLEID: idToDelete 
+      } 
+    },
     dbServer
   );
 }
