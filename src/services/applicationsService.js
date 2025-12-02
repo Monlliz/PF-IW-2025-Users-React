@@ -134,7 +134,7 @@ export async function createApplication(appData, dbServer, loggedUser = 'AGUIZAR
       idetiqueta: 'IdAplicaciones',
       idvalor: appData.APPID,
       valor: appData.NAME
-    }, dbServer, loggedUser);
+    }, loggedUser);
 
     return { appResult, labelResult };
   } catch (error) {
@@ -154,12 +154,6 @@ export async function fetchPrivilegesData(dbServer) {
       APPID: app.APPID,
         NAME: app.NAME,
     }));
-
-
-    // Usar el primer elemento de dataRes para las vistas (temporalmente)
-    const payload = dataRes[0] || {};
-    const rawViews = payload.VIEWS;
-    const rawProcessesList = payload.PROCESS;
 
     // Transform views data for each application
     let loadedViews = [];
@@ -234,9 +228,9 @@ export async function fetchPrivilegesData(dbServer) {
  * @param {string} loggedUser
  * @returns {Promise<{views: Array, processes: Array, privileges: Array}>}
  */
-async function fetchLabelsFromApi(dbServer, loggedUser = 'MIGUELLOPEZ') {
+async function fetchLabelsFromApi(dbServer = 'MongoDB', loggedUser = 'MIGUELLOPEZ') {
   try {
-    const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+    const url = `https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
     const resp = await fetch(url, { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
@@ -291,12 +285,11 @@ async function fetchLabelsFromApi(dbServer, loggedUser = 'MIGUELLOPEZ') {
 
 /**
  * Fetch all views from the unified Labels API endpoint
- * @param {string} dbServer
  * @returns {Promise<Array>} array of views
  */
-export async function fetchViews(dbServer) {
+export async function fetchViews() {
   try {
-    const { views } = await fetchLabelsFromApi(dbServer);
+    const { views } = await fetchLabelsFromApi();
     return views;
   } catch (error) {
     console.error('Error fetching views:', error);
@@ -306,12 +299,11 @@ export async function fetchViews(dbServer) {
 
 /**
  * Fetch all processes from the unified Labels API endpoint
- * @param {string} dbServer
  * @returns {Promise<Array>} array of processes
  */
-export async function fetchProcesses(dbServer) {
+export async function fetchProcesses() {
   try {
-    const { processes } = await fetchLabelsFromApi(dbServer);
+    const { processes } = await fetchLabelsFromApi();
     return processes;
   } catch (error) {
     console.error('Error fetching processes:', error);
@@ -321,12 +313,11 @@ export async function fetchProcesses(dbServer) {
 
 /**
  * Fetch all privileges from the unified Labels API endpoint
- * @param {string} dbServer
  * @returns {Promise<Array>} array of privileges
  */
-export async function fetchPrivileges(dbServer) {
+export async function fetchPrivileges() {
   try {
-    const { privileges } = await fetchLabelsFromApi(dbServer);
+    const { privileges } = await fetchLabelsFromApi();
     return privileges;
   } catch (error) {
     console.error('Error fetching privileges:', error);
@@ -342,9 +333,9 @@ export async function fetchPrivileges(dbServer) {
  * @param {string} loggedUser
  * @returns {Promise<any>} API response
  */
-export async function createLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+export async function createLabel(label, dbServer = 'MongoDB', loggedUser = 'MIGUELLOPEZ') {
 
-  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+  const url = `https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
 
   const body = {
     operations: [
@@ -389,9 +380,9 @@ export async function createLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
  * @param {string} loggedUser
  * @returns {Promise<any>} API response
  */
-export async function updateLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+export async function updateLabel(label, dbServer = 'MongoDB', loggedUser = 'MIGUELLOPEZ') {
 
-  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+  const url = `https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
 
   const body = {
     operations: [
@@ -438,9 +429,9 @@ export async function updateLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
  * @param {string} loggedUser
  * @returns {Promise<any>} API response
  */
-export async function deleteLabel(label, dbServer, loggedUser = 'MIGUELLOPEZ') {
+export async function deleteLabel(label, dbServer = 'MongoDB', loggedUser = 'MIGUELLOPEZ') {
 
-  const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+  const url = `https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=CRUD&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
 
   const body = {
     operations: [
@@ -492,7 +483,7 @@ export async function updateApplication(appId, data, dbServer) {
       idetiqueta: 'IdAplicaciones',
       idvalor: appId,
       valor: data.NAME || data.name
-    }, dbServer);
+    });
 
     return { appResult, labelResult };
   } catch (error) {
@@ -517,7 +508,7 @@ export async function deleteHardApplication(appId, dbServer, loggedUser = 'MIGUE
     const labelResult = await deleteLabel({
       idetiqueta: 'IdAplicaciones',
       idvalor: appId
-    }, dbServer, loggedUser);
+    }, loggedUser);
 
     return { appResult, labelResult };
   } catch (error) {

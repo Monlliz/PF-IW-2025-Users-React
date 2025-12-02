@@ -137,9 +137,6 @@ export default function PrivilegesLayout() {
   const [applications, setApplications] = useState([]);
   // Aplicación actualmente seleccionada por el usuario
   const [selectedApp, setSelectedApp] = useState(null);
-  // Indicador de carga para las aplicaciones (actualmente no usado, pero reservado para futuras implementaciones)
-  const [appLoading, setAppLoading] = useState(true);
-  
   // Estados de datos
   // Lista de vistas disponibles obtenidas desde la API de catálogo
   const [views, setViews] = useState([]);
@@ -228,16 +225,6 @@ export default function PrivilegesLayout() {
   // Tipo de ordenamiento para procesos: 'name' (por nombre) o 'assigned-first' (asignados primero)
   const [processSortType, setProcessSortType] = useState('name');
 
-  // Estados de filtrado y ordenamiento para privilegios
-  // Tipo de filtro para privilegios: 'all' (todos) o 'assigned' (solo asignados)
-  const [privilegeFilterType, setPrivilegeFilterType] = useState('all');
-  // Tipo de ordenamiento para privilegios: 'name' (por nombre) o 'assigned-first' (asignados primero)
-  const [privilegeSortType, setPrivilegeSortType] = useState('name');
-
-  // Consulta de búsqueda para privilegios (no implementada aún)
-  const [privilegeSearchQuery, setPrivilegeSearchQuery] = useState('');
-  // Privilegios actuales (no implementada aún)
-  const [currentPrivileges, setCurrentPrivileges] = useState([]);
   // Estados para modales genéricos
   // Tipo de modal abierto: 'create', 'edit', 'delete'
   const [modalType, setModalType] = useState(null);
@@ -245,8 +232,6 @@ export default function PrivilegesLayout() {
   const [modalContext, setModalContext] = useState(null);
   // Datos asociados al modal
   const [modalData, setModalData] = useState(null);
-  // Confirmación de eliminación: {context, data}
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   //ESTADO INDICADOR PARA VISTAS - NUEVO O EDITADO
   const [viewIndicators, setViewIndicators] = useState({});
@@ -439,16 +424,6 @@ const highlightCell = (field, selectedValue) => ({ row, value }) => {
     }
   };
 
-  // Buscar
-  const handleSearch = (event, data, setFiltered) => {
-    const q = event.target.value.toLowerCase();
-    if (!q) return setFiltered(data);
-    const f = data.filter((d) =>
-      Object.values(d).some((v) => String(v).toLowerCase().includes(q))
-    );
-    setFiltered(f);
-  };
-
   /**
    * Aplica filtrado y ordenamiento a la lista de vistas.
    * Filtra por asignadas si corresponde y ordena según el tipo seleccionado.
@@ -521,38 +496,6 @@ const highlightCell = (field, selectedValue) => ({ row, value }) => {
     }
 
     setFilteredViews(result);
-  };
-
-  /**
-   * Aplica filtrado y ordenamiento a la lista de procesos.
-   * Filtra por asignados si corresponde y ordena según el tipo seleccionado.
-   */
-  const applyProcessFiltersAndSort = () => {
-    // Si no hay vista seleccionada, no mostrar nada
-    if (!selectedView) {
-      setFilteredProcesses([]);
-      return;
-    }
-
-    let result = [...(filteredProcesses || [])];
-
-    // Filtrar según la selección
-    if (processFilterType === 'assigned') {
-      result = result.filter((p) => checkedProcesses[p.PROCESSID] === true);
-    }
-
-    // Ordenar según la selección
-    if (processSortType === 'assigned-first') {
-      result.sort((a, b) => {
-        const aAssigned = checkedProcesses[a.PROCESSID] === true ? 1 : 0;
-        const bAssigned = checkedProcesses[b.PROCESSID] === true ? 1 : 0;
-        return bAssigned - aAssigned; // Asignados primero
-      });
-    } else if (processSortType === 'name') {
-      result.sort((a, b) => String(a.PROCESSID).localeCompare(String(b.PROCESSID)));
-    }
-
-    setFilteredProcesses(result);
   };
 
   // Efecto para cargar y filtrar procesos, y marcar checkboxes cuando cambia la vista seleccionada
@@ -683,7 +626,6 @@ const highlightCell = (field, selectedValue) => ({ row, value }) => {
         setCheckedViews({});
       } catch (errViews) {
         console.warn('No se pudieron obtener vistas desde API:', errViews);
-        setViews(existingViewsData);
         setFilteredViews([]);
         setCheckedViews({});
       }

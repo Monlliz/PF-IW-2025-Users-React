@@ -166,9 +166,9 @@ export async function fetchRolesData(dbServer) {
  * @param {string} loggedUser
  * @returns {Promise<{applications: Array}>}
  */
-export async function fetchApplicationsFromApi(dbServer, loggedUser = 'AGUIZARE') {
+export async function fetchApplicationsFromApi(dbServer = 'MongoDB', loggedUser = 'AGUIZARE') {
   try {
-    const url = `https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
+    const url = `https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=GetAll&LoggedUser=${loggedUser}&DBServer=${dbServer}`;
 
     const resp = await fetch(url, {
       method: 'POST',
@@ -238,7 +238,7 @@ export async function fetchAllRolesAndApps(dbServer) {
     });
 
     // Obtener todas las aplicaciones
-    const allAppsData = await fetchApplicationsFromApi(dbServer);
+    const allAppsData = await fetchApplicationsFromApi();
     const loadedAllApps = (allAppsData.applications || []).map(app => ({
       APPID: app.IdValor,
       NAMEAPP: app.VALOR,
