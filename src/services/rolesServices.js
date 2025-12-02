@@ -1,9 +1,23 @@
+// ============================================================================
+// CONFIGURACIÓN Y UTILIDADES DEL SERVICIO DE ROLES
+// ============================================================================
+
 // URL base para todas las llamadas al API de Roles
 const API_BASE_ROLES = 'https://gadev-usuarios.onrender.com/api/roles/crud';
 
 /**
  * Función genérica para interactuar con el API de Roles.
- * Centraliza la construcción del URL, el método POST y el manejo de errores.
+ * Esta función centraliza:
+ *  - Construcción del URL completo
+ *  - Manejo de parámetros obligatorios
+ *  - Envío de la petición POST
+ *  - Manejo de errores
+ *  - Parseo de respuesta JSON
+ *
+ * Beneficios:
+ *  - Evita duplicar lógica de fetch en cada operación (DRY)
+ *  - Si cambia la URL o headers, solo se actualiza aquí
+ *  - Estandariza el formato de errores en consola
  *
  * @param {string} processType - Tipo de operación a ejecutar (add, delete, getAll, etc.)
  * @param {object} body - Cuerpo de la petición enviado al backend
@@ -21,7 +35,7 @@ async function callRolesApi(processType, body, dbServer) {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body) // el backend CAP espera siempre JSON válido
     });
 
     // Manejo de errores HTTP
@@ -36,8 +50,12 @@ async function callRolesApi(processType, body, dbServer) {
   }
 }
 
+// ============================================================================
+// OPERACIONES CRUD DEL MÓDULO ROLES
+// ============================================================================
+
 /**
- * Agrega un proceso a un rol.
+ * Agrega un proceso/aplicación a un rol.
  * Envia el body tal como se recibe.
  *
  * @param {object} body - Datos del proceso a agregar
@@ -96,9 +114,20 @@ export async function deletePrivilegeFromProcess(roleId, processId, privilegeId,
   );
 }
 
+// ============================================================================
+// OBTENER INFORMACIÓN GENERAL (ROLES + PROCESOS + PRIVILEGIOS)
+// ============================================================================
+
 /**
  * Obtiene todos los roles, sus procesos y privilegios.
  *
+ * La respuesta del backend CAP tiene estructura extremadamente anidada:
+ *   data.value[0].data[0].dataRes
+ *
+ * Por eso se utiliza optional chaining "?."
+ * ?. “Si la variable existe y no es null ni undefined, accede a la propiedad; si no, regresa undefined sin generar error”.
+ * 
+ * para evitar errores en caso de que alguna capa venga vacía.
  * @param {string} dbServer
  * @returns {Promise<{roles: Array, processes: Array, processesMap: Object, privilegesMap: Object}>}
  */
@@ -161,9 +190,20 @@ export async function fetchRolesData(dbServer) {
   }
 }
 
+// ============================================================================
+// OBTENER TODAS LAS APLICACIONES (API UNIFICADA DE LABELS)
+// ============================================================================
+
 /**
  * Obtiene todas las aplicaciones desde la API unificada de Labels.
  *
+ *  * Este endpoint pertenece al área de "Labels" y devuelve
+ * valores agrupados por etiquetas.
+ *
+ * Filtramos únicamente los items cuyo:
+ *   IDETIQUETA = "IdAplicaciones"
+ *
+ * Este servicio es independiente del módulo de Roles.
  * @param {string} dbServer
  * @param {string} loggedUser
  * @returns {Promise<{applications: Array}>}
@@ -201,9 +241,17 @@ export async function fetchApplicationsFromApi(dbServer = 'MongoDB', loggedUser 
   }
 }
 
+
+// ============================================================================
+// OBTENER ROLES + TODAS LAS APPS + APPS ASIGNADAS POR ROL
+// ============================================================================
+
 /**
  * Obtiene roles + todas las apps + apps asignadas por rol.
  *
+ *  Endpoint que combina:
+ *  - Roles
+ *  - Procesos asignados a cada rol
  * @param {string} dbServer
  */
 export async function fetchAllRolesAndApps(dbServer) {
