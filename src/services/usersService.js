@@ -138,7 +138,7 @@ export const deleteUserService = async (userId, dbServer) => {
 
 export const getSociedades = async () => {
     try {
-        const url = 'https://api4papalotescatalogos-bmgjbvgjdhf6eafj.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=getJerarquia&LoggedUser=MIGUELLOPEZ&DBServer=MongoDB&IDETIQUETA=SOCIEDAD';
+        const url = 'https://api5papalotescatalogos-caf6azeddbehbbak.mexicocentral-01.azurewebsites.net/api/cat/crudLabelsValues?ProcessType=getJerarquia&LoggedUser=MIGUELLOPEZ&DBServer=MongoDB&IDETIQUETA=SOCIEDAD';
 
         const config = {
             method: 'POST',

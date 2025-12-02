@@ -38,6 +38,10 @@ import {
 } from "@ui5/webcomponents-react";
 import { DbContext } from "../contexts/dbContext";
 
+//Los signos ?. y ?? que aparecen en tu código son operadores modernos de JavaScript / React.
+// ?. “Si la variable existe y no es null ni undefined, accede a la propiedad; si no, regresa undefined sin generar error”.
+// ?? “Si el valor es null o undefined, usa lo que está después del ??” como un ?? "Desconocido".
+
 // Componente que crea un layout con dos paneles ajustables mediante un splitter vertical
 function SplitterLayout({
   children,                 // [panelIzquierdo, panelDerecho]
