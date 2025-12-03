@@ -1,23 +1,9 @@
-// ============================================================================
-// CONFIGURACIÓN Y UTILIDADES DEL SERVICIO DE ROLES
-// ============================================================================
-
 // URL base para todas las llamadas al API de Roles
 const API_BASE_ROLES = 'https://gadev-usuarios.onrender.com/api/roles/crud';
 
 /**
  * Función genérica para interactuar con el API de Roles.
- * Esta función centraliza:
- *  - Construcción del URL completo
- *  - Manejo de parámetros obligatorios
- *  - Envío de la petición POST
- *  - Manejo de errores
- *  - Parseo de respuesta JSON
- *
- * Beneficios:
- *  - Evita duplicar lógica de fetch en cada operación (DRY)
- *  - Si cambia la URL o headers, solo se actualiza aquí
- *  - Estandariza el formato de errores en consola
+ * Centraliza la construcción del URL, el método POST y el manejo de errores.
  *
  * @param {string} processType - Tipo de operación a ejecutar (add, delete, getAll, etc.)
  * @param {object} body - Cuerpo de la petición enviado al backend
@@ -35,7 +21,7 @@ async function callRolesApi(processType, body, dbServer) {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body) // el backend CAP espera siempre JSON válido
+      body: JSON.stringify(body)
     });
 
     // Manejo de errores HTTP
@@ -50,12 +36,8 @@ async function callRolesApi(processType, body, dbServer) {
   }
 }
 
-// ============================================================================
-// OPERACIONES CRUD DEL MÓDULO ROLES
-// ============================================================================
-
 /**
- * Agrega un proceso/aplicación a un rol.
+ * Agrega un proceso a un rol.
  * Envia el body tal como se recibe.
  *
  * @param {object} body - Datos del proceso a agregar
@@ -114,20 +96,9 @@ export async function deletePrivilegeFromProcess(roleId, processId, privilegeId,
   );
 }
 
-// ============================================================================
-// OBTENER INFORMACIÓN GENERAL (ROLES + PROCESOS + PRIVILEGIOS)
-// ============================================================================
-
 /**
  * Obtiene todos los roles, sus procesos y privilegios.
  *
- * La respuesta del backend CAP tiene estructura extremadamente anidada:
- *   data.value[0].data[0].dataRes
- *
- * Por eso se utiliza optional chaining "?."
- * ?. “Si la variable existe y no es null ni undefined, accede a la propiedad; si no, regresa undefined sin generar error”.
- * 
- * para evitar errores en caso de que alguna capa venga vacía.
  * @param {string} dbServer
  * @returns {Promise<{roles: Array, processes: Array, processesMap: Object, privilegesMap: Object}>}
  */
@@ -135,10 +106,8 @@ export async function fetchRolesData(dbServer) {
   try {
     const data = await callRolesApi('getAll', {}, dbServer);
 
-    console.log("Respuesta completa API Roles:", data);
-
-    // Usamos la estructura correcta: data.value...
-    const dataRes = data.value?.[0]?.data?.[0]?.dataRes || [];
+    // Estructura estándar del API
+    const dataRes = data.data?.[0]?.dataRes || [];
 
     // Procesamiento básico de roles
     const roles = dataRes.map(role => ({
@@ -190,20 +159,9 @@ export async function fetchRolesData(dbServer) {
   }
 }
 
-// ============================================================================
-// OBTENER TODAS LAS APLICACIONES (API UNIFICADA DE LABELS)
-// ============================================================================
-
 /**
  * Obtiene todas las aplicaciones desde la API unificada de Labels.
  *
- *  * Este endpoint pertenece al área de "Labels" y devuelve
- * valores agrupados por etiquetas.
- *
- * Filtramos únicamente los items cuyo:
- *   IDETIQUETA = "IdAplicaciones"
- *
- * Este servicio es independiente del módulo de Roles.
  * @param {string} dbServer
  * @param {string} loggedUser
  * @returns {Promise<{applications: Array}>}
@@ -241,17 +199,9 @@ export async function fetchApplicationsFromApi(dbServer = 'MongoDB', loggedUser 
   }
 }
 
-
-// ============================================================================
-// OBTENER ROLES + TODAS LAS APPS + APPS ASIGNADAS POR ROL
-// ============================================================================
-
 /**
  * Obtiene roles + todas las apps + apps asignadas por rol.
  *
- *  Endpoint que combina:
- *  - Roles
- *  - Procesos asignados a cada rol
  * @param {string} dbServer
  */
 export async function fetchAllRolesAndApps(dbServer) {
@@ -288,7 +238,7 @@ export async function fetchAllRolesAndApps(dbServer) {
     });
 
     // Obtener todas las aplicaciones
-    const allAppsData = await fetchApplicationsFromApi();
+    const allAppsData = await fetchApplicationsFromApi(dbServer);
     const loadedAllApps = (allAppsData.applications || []).map(app => ({
       APPID: app.IdValor,
       NAMEAPP: app.VALOR,
@@ -313,27 +263,14 @@ export async function fetchAllRolesAndApps(dbServer) {
  * @param {object} data - Campos a actualizar
  * @param {string} dbServer
  */
-export async function updateRole(roleData, dbServer) {
-  
-  // 1. LIMPIEZA DE DATOS (Allowlist / Lista Blanca)
-  // Creamos un objeto nuevo SOLO con los campos que el backend CAP permite.
-  // Esto elimina automáticamente _id, __v, y cualquier otra basura.
-  const cleanPayload = {
-    ROLEID: roleData.ROLEID,
-    ROLENAME: roleData.ROLENAME,
-    DESCRIPTION: roleData.DESCRIPTION || "",
-    ACTIVED: roleData.ACTIVED,
-    DELETED: roleData.DELETED,
-    // Si NO vas a editar procesos en esta llamada, mejor no los envíes 
-    // para evitar errores de validación en estructuras anidadas.
-    // PROCESS: [] 
-  };
-
-  // 2. Enviamos el objeto limpio
+export async function updateRole(roleId, data, dbServer) {
   return callRolesApi(
     'updateOne',
     {
-      rol: cleanPayload
+      rol: {
+        ROLEID: roleId,
+        ...data
+      }
     },
     dbServer
   );
@@ -359,17 +296,10 @@ export async function createRole(data, dbServer) {
  * @param {string} roleId
  * @param {string} dbServer
  */
-export async function deleteRole(roleData, dbServer) {
-  // Extraemos el ID del objeto para asegurarnos de enviar una cadena de texto, no un objeto
-  const idToDelete = roleData.ROLEID;
-
+export async function deleteRole(roleId, dbServer) {
   return callRolesApi(
     'deleteRol',
-    { 
-      rol: { 
-        ROLEID: idToDelete 
-      } 
-    },
+    { rol: { ROLEID: roleId } },
     dbServer
   );
 }
